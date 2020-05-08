@@ -1,10 +1,12 @@
 import pygame, sys, math
 import numpy as np
 from pygame.locals import *
+from enum import Enum, auto
 
 selection_color = (255,0,0)
 
 class Ship(pygame.sprite.Sprite):
+
     def __init__(self, playarea, loc=(0.0,0.0), name='test'):
        pygame.sprite.Sprite.__init__(self)
        self.image0 = pygame.image.load('blueship.png').convert_alpha()
@@ -19,6 +21,9 @@ class Ship(pygame.sprite.Sprite):
        self.bearing = 0
        self.thrust = 10
        self.name = name
+       self.order = ShipOrder.STANDARD
+       self.minthrust = self.thrust/2
+       self.maxthrust = self.thrust
     
     def zoom(self, zoom_increment):
         self.rect.center = playarea.gridtopixel(self.loc)
@@ -36,6 +41,14 @@ class Ship(pygame.sprite.Sprite):
             self.loc = playarea.pixeltogrid(self.rect.center)
         print(f'new location {self.loc}')
 
+class ShipOrder(Enum):
+    STANDARD = auto()
+    WEAPONSFREE = auto()
+    STATIONKEEPING = auto()
+    COURSECHANGE = auto()
+    MAXTHRUST = auto()
+    SILENTRUNNING = auto()
+    ACTIVESCAN = auto()
 
 class PlayArea(pygame.sprite.Sprite):
     def __init__(self):
@@ -90,6 +103,12 @@ class CombatLog:
             line_font_surface = line_font.render(line,False,self.font_color)
             surf.blit(line_font_surface,(self.rect.x, self.rect.y + line_pixel))
             line_pixel += 20
+    
+    def scrollup(self):
+        pass
+
+    def scrolldown(self):
+        pass
 
 pygame.init()
 DISPLAYSURF = pygame.display.set_mode((1600,900), pygame.RESIZABLE)
@@ -139,7 +158,7 @@ while True:
             # print(pygame.mouse.get_pos())
 
             if event.button == 1:
-                print(playarea.pixeltogrid(event.pos))
+                # print(playarea.pixeltogrid(event.pos))
                 for ship in ships:
                     if ship.rect.collidepoint(pygame.mouse.get_pos()):
                         if ship != selectedship:
@@ -155,7 +174,7 @@ while True:
                             ship.is_selected = False
                             ship.loc = playarea.pixeltogrid(ship.rect.center)
                             ship.selection_loc = None
-                            combatlog.log.append(f'{ship.name} moved to {ship.loc}')
+                            combatlog.log.append(f'{ship.name} moved to {ship.loc[0]:.1f}, {ship.loc[1]:.1f}')
 
             if event.button == 3:            
                 dragging = True
@@ -167,31 +186,26 @@ while True:
                     draggable_offsets.append([offset_x, offset_y])
 
             elif event.button == 4: # mouse wheel up
-                for draggable in draggables:
-                    draggable.zoom(.1)
-                    # center = draggable.rect.center
-                    # draggable.scale = draggable.scale*1.1
-                    # draggable.image = pygame.transform.rotozoom(draggable.image0, 0, draggable.scale)
-                    # draggable.rect = draggable.image.get_rect()
-                    # draggable.rect.center = center
-                    # print(draggable.scale)
-                    # rectangle = draggable.rect
-                    # if rectangle.width < 10*DISPLAYSURF.get_width() and rectangle.height < 10*DISPLAYSURF.get_height():
-                    #     rectangle.inflate_ip(rectangle.width/10, rectangle.height/10)
+                mouseinui = False
+                for ui_el in ui:
+                    if ui_el.rect.collidepoint(event.pos):
+                        mouseinui = True
+                        ui_el.scrollup()
+                        break
+                if not mouseinui:
+                    for draggable in draggables:
+                        draggable.zoom(.1)
 
             elif event.button == 5: # mouse wheel down
-                min_frac = .8
-                for draggable in draggables:
-                    draggable.zoom(-.1)
-                    # center = draggable.rect.center
-                    # draggable.scale = draggable.scale*.9
-                    # draggable.image = pygame.transform.rotozoom(draggable.image0, 0, draggable.scale)
-                    # draggable.rect = draggable.image.get_rect()
-                    # draggable.rect.center = center
-                    # print(draggable.scale)
-                    # rectangle = draggable.rect
-                    # if rectangle.width > DISPLAYSURF.get_width()*min_frac or rectangle.height > DISPLAYSURF.get_height()*min_frac:
-                    #     rectangle.inflate_ip(-rectangle.width/10, -rectangle.height/10)
+                mouseinui = False
+                for ui_el in ui:
+                    if ui_el.rect.collidepoint(event.pos):
+                        mouseinui = True
+                        ui_el.scrolldown()
+                        break
+                if not mouseinui:
+                    for draggable in draggables:
+                        draggable.zoom(-.1)
         
         elif event.type == pygame.MOUSEBUTTONUP:
             if event.button == 3:            
@@ -204,11 +218,16 @@ while True:
                 center = playarea.gridtopixel(selectedship.selection_loc)
                 move_pos = playarea.gridtopixel(selectedship.loc)
                 dist = math.sqrt(math.pow(selectedship.selection_loc[0] - selectedship.loc[0],2) + math.pow(selectedship.selection_loc[1] - selectedship.loc[1],2))
-                if dist > selectedship.thrust:
-                    print(f'ship selection loc {selectedship.selection_loc}')
-                    print(f'ship loc {selectedship.loc}')
-                    center_x = (selectedship.selection_loc[0] - selectedship.loc[0])/dist*selectedship.thrust + selectedship.loc[0]
-                    center_y = (selectedship.selection_loc[1] - selectedship.loc[1])/dist*selectedship.thrust + selectedship.loc[1]
+                if dist > selectedship.maxthrust or dist < selectedship.minthrust:
+                    # print(f'ship selection loc {selectedship.selection_loc}')
+                    # print(f'ship loc {selectedship.loc}')
+                    if dist > selectedship.maxthrust:
+                        thrust = selectedship.maxthrust
+                    else:
+                        thrust = selectedship.minthrust
+                    if dist == 0: dist = .001
+                    center_x = (selectedship.selection_loc[0] - selectedship.loc[0])/dist*thrust + selectedship.loc[0]
+                    center_y = (selectedship.selection_loc[1] - selectedship.loc[1])/dist*thrust + selectedship.loc[1]
                     center = playarea.gridtopixel((center_x,center_y))
                 # print(dist)
                 
@@ -242,9 +261,11 @@ while True:
         # selectedship.update_loc(playarea)
         pygame.draw.rect(DISPLAYSURF, selection_color, selectedship.rect,1)
 
-        selectedship_thrust_pixel,val = playarea.gridtopixel((selectedship.thrust,0))
-        selectedship_thrust_pixel = selectedship_thrust_pixel - playarea.rect.x
-        pygame.draw.circle(DISPLAYSURF, selection_color, playarea.gridtopixel(selectedship.loc), selectedship_thrust_pixel, 1)
+        for i in [selectedship.minthrust,selectedship.maxthrust]:
+            if i == 0: break
+            selectedship_thrust_pixel,val = playarea.gridtopixel((i,0))
+            selectedship_thrust_pixel = selectedship_thrust_pixel - playarea.rect.x
+            pygame.draw.circle(DISPLAYSURF, selection_color, playarea.gridtopixel(selectedship.loc), selectedship_thrust_pixel, 1)
 
         selectedship.draw_firingarcs(DISPLAYSURF)
         pygame.draw.line(DISPLAYSURF, selection_color, playarea.gridtopixel(selectedship.loc), selectedship.rect.center)
