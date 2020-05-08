@@ -90,25 +90,36 @@ class CombatLog:
         self.rect = None
         self.color = (100,100,100)
         self.font_color = (255,255,255)
-        # self.currentline = 0
+        self.currentline = 0
     
     def draw(self, surf):
         self.width = int(surf.get_width()*.3)
-        self.height = int(surf.get_height()*.3)
+        self.height = int(surf.get_height()*.2)
         self.rect = pygame.Rect(surf.get_width()-self.width,surf.get_height()-self.height,self.width,self.height)
         pygame.draw.rect(surf, self.color, self.rect)
+        
+        printloglines = self.log.copy()
+        printloglines.reverse()
+        lines = int(self.height/20)
+        if lines < len(printloglines):
+            printloglines = printloglines[self.currentline:lines+self.currentline]
+        printloglines.reverse()
+
         line_pixel = 0
-        for line in self.log:
+        for line in printloglines:
             line_font = pygame.font.Font(None, 20)
             line_font_surface = line_font.render(line,False,self.font_color)
             surf.blit(line_font_surface,(self.rect.x, self.rect.y + line_pixel))
             line_pixel += 20
     
-    def scrollup(self):
-        pass
-
-    def scrolldown(self):
-        pass
+    def scroll(self, dir):
+        if len(self.log)*20 < self.height:
+            return
+        if self.currentline + dir < 0:
+            return
+        if self.currentline + dir + self.height/20 - 1 >= len(self.log):
+            return
+        self.currentline += dir
 
 pygame.init()
 DISPLAYSURF = pygame.display.set_mode((1600,900), pygame.RESIZABLE)
@@ -190,7 +201,7 @@ while True:
                 for ui_el in ui:
                     if ui_el.rect.collidepoint(event.pos):
                         mouseinui = True
-                        ui_el.scrollup()
+                        ui_el.scroll(1)
                         break
                 if not mouseinui:
                     for draggable in draggables:
@@ -201,7 +212,7 @@ while True:
                 for ui_el in ui:
                     if ui_el.rect.collidepoint(event.pos):
                         mouseinui = True
-                        ui_el.scrolldown()
+                        ui_el.scroll(-1)
                         break
                 if not mouseinui:
                     for draggable in draggables:
