@@ -7,7 +7,7 @@ selection_color = (255,0,0)
 
 class Ship(pygame.sprite.Sprite):
 
-    def __init__(self, playarea, loc=(0.0,0.0), name='test'):
+    def __init__(self, playarea, loc=(10.0,10.0), name='test'):
        pygame.sprite.Sprite.__init__(self)
        self.image0 = pygame.image.load('blueship.png').convert_alpha()
        self.scale = .2
@@ -19,6 +19,7 @@ class Ship(pygame.sprite.Sprite):
        self.is_selected = False
        self.selection_loc = None
        self.bearing = 0
+       self.selection_bearing = None
        self.thrust = 10
        self.name = name
        self.order = ShipOrder.STANDARD
@@ -36,9 +37,11 @@ class Ship(pygame.sprite.Sprite):
     def update_loc(self, playarea):
         if self.is_selected:
             self.selection_loc = playarea.pixeltogrid(self.rect.center)
+            self.selection_bearing = self.bearing
         else:
             self.selection_loc = None
             self.loc = playarea.pixeltogrid(self.rect.center)
+            self.selection_bearing = None
         print(f'new location {self.loc}')
 
 class ShipOrder(Enum):
@@ -81,6 +84,9 @@ class PlayArea(pygame.sprite.Sprite):
             if y < 0: y = 0
             if y > self.dim[1]: y = self.dim[1]
         return (x, y)
+    
+    def scalegridtopixel(self, dist):
+        return dist/self.dim[0]*self.rect.width
 
 class CombatLog:
     def __init__(self, surf):
@@ -179,13 +185,15 @@ while True:
                             selectoffset_x = ship.rect.center[0] - event.pos[0]
                             selectoffset_y = ship.rect.center[1] - event.pos[1]
                             ship.is_selected = True
+                            # print(f'initial bearing {ship.bearing}')
                         else:
                             draggables.append(ship)
                             selectedship = None
                             ship.is_selected = False
                             ship.loc = playarea.pixeltogrid(ship.rect.center)
                             ship.selection_loc = None
-                            combatlog.log.append(f'{ship.name} moved to {ship.loc[0]:.1f}, {ship.loc[1]:.1f}')
+                            ship.bearing = ship.selection_bearing
+                            combatlog.log.append(f'{ship.name} moved to {ship.loc[0]:.1f}, {ship.loc[1]:.1f} bearing {ship.bearing}')
 
             if event.button == 3:            
                 dragging = True
@@ -227,36 +235,44 @@ while True:
                 center = (selectoffset_x + event.pos[0], selectoffset_y + event.pos[1])
                 selectedship.selection_loc = playarea.pixeltogrid(center) #grid location of ship when selected
                 center = playarea.gridtopixel(selectedship.selection_loc)
-                move_pos = playarea.gridtopixel(selectedship.loc)
                 dist = math.sqrt(math.pow(selectedship.selection_loc[0] - selectedship.loc[0],2) + math.pow(selectedship.selection_loc[1] - selectedship.loc[1],2))
-                if dist > selectedship.maxthrust or dist < selectedship.minthrust:
+                # if dist > selectedship.maxthrust or dist < selectedship.minthrust:
                     # print(f'ship selection loc {selectedship.selection_loc}')
                     # print(f'ship loc {selectedship.loc}')
-                    if dist > selectedship.maxthrust:
-                        thrust = selectedship.maxthrust
-                    else:
-                        thrust = selectedship.minthrust
-                    if dist == 0: dist = .001
-                    center_x = (selectedship.selection_loc[0] - selectedship.loc[0])/dist*thrust + selectedship.loc[0]
-                    center_y = (selectedship.selection_loc[1] - selectedship.loc[1])/dist*thrust + selectedship.loc[1]
-                    center = playarea.gridtopixel((center_x,center_y))
+                if dist > selectedship.maxthrust:
+                    thrust = selectedship.maxthrust
+                elif dist < selectedship.minthrust:
+                    thrust = selectedship.minthrust
+                    # if dist == 0: dist = .001
+                else:
+                    thrust = dist
+                print(f'thrust {thrust}')
+                    # center_x = (selectedship.selection_loc[0] - selectedship.loc[0])/dist*thrust + selectedship.loc[0]
+                    # center_y = (selectedship.selection_loc[1] - selectedship.loc[1])/dist*thrust + selectedship.loc[1]
+                    # center = playarea.gridtopixel((center_x,center_y))
                 # print(dist)
                 
+                move_pos = playarea.gridtopixel(selectedship.loc)
                 x = center[0] - move_pos[0]
                 y = center[1] - move_pos[1]
-                if x == 0:
-                    if y > 0:
-                        bearing = 180
-                    else:
-                        bearing = 0
-                elif x < 0:
-                    bearing = 90-math.degrees(math.atan(y/x))
-                else:
-                    bearing = 270-math.degrees(math.atan(y/x))
-                selectedship.bearing = bearing
-                # print(bearing)
+                bearing = math.atan2(x,-y)
+                print(f'new bearing {bearing}')
 
-                selectedship.image = pygame.transform.rotozoom(selectedship.image0, bearing, selectedship.scale)
+                bearing_change = bearing + math.radians(selectedship.bearing)
+                print(f'bearing change {bearing_change}')
+                if bearing_change < -math.pi:
+                    bearing_change = bearing_change + 2 * math.pi
+                if bearing_change < -math.radians(45):
+                    bearing = -math.radians(45) - math.radians(selectedship.bearing)
+                if bearing_change > math.radians(45):
+                    bearing = math.radians(45) - math.radians(selectedship.bearing)
+                selectedship.selection_bearing = -math.degrees(bearing%(2*math.pi))
+
+                center_x = thrust * math.sin(bearing) + selectedship.loc[0]
+                center_y = thrust * -math.cos(bearing) + selectedship.loc[1]
+                center = playarea.gridtopixel((center_x,center_y))
+
+                selectedship.image = pygame.transform.rotozoom(selectedship.image0, selectedship.selection_bearing, selectedship.scale)
                 selectedship.rect = selectedship.image.get_rect()
                 selectedship.rect.center = center
             if dragging:
@@ -272,11 +288,29 @@ while True:
         # selectedship.update_loc(playarea)
         pygame.draw.rect(DISPLAYSURF, selection_color, selectedship.rect,1)
 
+        # print(selectedship.bearing)
+        minthrust_pixel = playarea.scalegridtopixel(selectedship.minthrust)
+        maxthrust_pixel = playarea.scalegridtopixel(selectedship.maxthrust)
+        shipx_pixel = playarea.gridtopixel(selectedship.loc)[0]
+        shipy_pixel = playarea.gridtopixel(selectedship.loc)[1]
+        border1_bearing = (selectedship.bearing + 45) % 360
+        border2_bearing = (selectedship.bearing - 45) % 360
+        for bearing in [border1_bearing, border2_bearing]:
+            border1_x1 = -minthrust_pixel * math.sin(math.radians(bearing)) + shipx_pixel
+            border1_x2 = -maxthrust_pixel * math.sin(math.radians(bearing)) + shipx_pixel
+            border1_y1 = -minthrust_pixel * math.cos(math.radians(bearing)) + shipy_pixel
+            border1_y2 = -maxthrust_pixel * math.cos(math.radians(bearing)) + shipy_pixel
+            pygame.draw.line(DISPLAYSURF,selection_color, (border1_x1, border1_y1), (border1_x2, border1_y2))
+
         for i in [selectedship.minthrust,selectedship.maxthrust]:
             if i == 0: break
             selectedship_thrust_pixel,val = playarea.gridtopixel((i,0))
             selectedship_thrust_pixel = selectedship_thrust_pixel - playarea.rect.x
-            pygame.draw.circle(DISPLAYSURF, selection_color, playarea.gridtopixel(selectedship.loc), selectedship_thrust_pixel, 1)
+            # pygame.draw.circle(DISPLAYSURF, selection_color, playarea.gridtopixel(selectedship.loc), selectedship_thrust_pixel, 1)
+            left = playarea.gridtopixel(selectedship.loc)[0] - selectedship_thrust_pixel
+            top = playarea.gridtopixel(selectedship.loc)[1] - selectedship_thrust_pixel
+            dim = 2*selectedship_thrust_pixel
+            pygame.draw.arc(DISPLAYSURF, selection_color, pygame.Rect(left,top, dim, dim), math.radians(border1_bearing), math.radians(border2_bearing-180))
 
         selectedship.draw_firingarcs(DISPLAYSURF)
         pygame.draw.line(DISPLAYSURF, selection_color, playarea.gridtopixel(selectedship.loc), selectedship.rect.center)
