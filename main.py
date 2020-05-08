@@ -5,7 +5,7 @@ from pygame.locals import *
 selection_color = (255,0,0)
 
 class Ship(pygame.sprite.Sprite):
-    def __init__(self, playarea, loc=(0.0,0.0)):
+    def __init__(self, playarea, loc=(0.0,0.0), name='test'):
        pygame.sprite.Sprite.__init__(self)
        self.image0 = pygame.image.load('blueship.png').convert_alpha()
        self.scale = .2
@@ -18,6 +18,7 @@ class Ship(pygame.sprite.Sprite):
        self.selection_loc = None
        self.bearing = 0
        self.thrust = 10
+       self.name = name
     
     def zoom(self, zoom_increment):
         self.rect.center = playarea.gridtopixel(self.loc)
@@ -68,9 +69,27 @@ class PlayArea(pygame.sprite.Sprite):
             if y > self.dim[1]: y = self.dim[1]
         return (x, y)
 
-class console:
-    def __init__(self):
-        pass
+class CombatLog:
+    def __init__(self, surf):
+        self.log = []
+        self.width = 0
+        self.height = 0
+        self.rect = None
+        self.color = (100,100,100)
+        self.font_color = (255,255,255)
+        # self.currentline = 0
+    
+    def draw(self, surf):
+        self.width = int(surf.get_width()*.3)
+        self.height = int(surf.get_height()*.3)
+        self.rect = pygame.Rect(surf.get_width()-self.width,surf.get_height()-self.height,self.width,self.height)
+        pygame.draw.rect(surf, self.color, self.rect)
+        line_pixel = 0
+        for line in self.log:
+            line_font = pygame.font.Font(None, 20)
+            line_font_surface = line_font.render(line,False,self.font_color)
+            surf.blit(line_font_surface,(self.rect.x, self.rect.y + line_pixel))
+            line_pixel += 20
 
 pygame.init()
 DISPLAYSURF = pygame.display.set_mode((1600,900), pygame.RESIZABLE)
@@ -83,6 +102,7 @@ draggables = []
 draggable_offsets = []
 playobjects = []
 ships = pygame.sprite.Group()
+ui = []
 
 playarea = PlayArea()
 playarea.scale = min(DISPLAYSURF.get_width()/playarea.rect.width, DISPLAYSURF.get_height()/playarea.rect.height)
@@ -96,6 +116,9 @@ ship1 = Ship(playarea)
 draggables.append(ship1)
 sprites.add(ship1)
 ships.add(ship1)
+
+combatlog = CombatLog(DISPLAYSURF)
+ui.append(combatlog)
 
 selectedship = None
 
@@ -132,6 +155,7 @@ while True:
                             ship.is_selected = False
                             ship.loc = playarea.pixeltogrid(ship.rect.center)
                             ship.selection_loc = None
+                            combatlog.log.append(f'{ship.name} moved to {ship.loc}')
 
             if event.button == 3:            
                 dragging = True
@@ -226,6 +250,8 @@ while True:
         pygame.draw.line(DISPLAYSURF, selection_color, playarea.gridtopixel(selectedship.loc), selectedship.rect.center)
         # DISPLAYSURF.blit(sprite.image,(sprite.x, sprite.y))
     
+    for ui_el in ui:
+        ui_el.draw(DISPLAYSURF)
     # fps_font_surface = fps_font.render(str(INTERNALCLOCK.get_fps()),False,(255,255,255))
     # DISPLAYSURF.blit(fps_font_surface,(0,0))
 
