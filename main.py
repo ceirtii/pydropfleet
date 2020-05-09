@@ -29,7 +29,7 @@ class Ship(pygame.sprite.Sprite):
        self.pd = shipDB[shipclass]['pd']
 
        self.image0 = pygame.image.load('blueship.png').convert_alpha()
-       self.scale = .2
+       self.scale = .05
        self.bearing = 0
        self.image = pygame.transform.rotozoom(self.image0, self.bearing, self.scale)
        self.rect = self.image.get_rect()
@@ -43,6 +43,7 @@ class Ship(pygame.sprite.Sprite):
        self.order = ShipOrder.STANDARD
        self.minthrust = self.thrust/2
        self.maxthrust = self.thrust
+       self.display_infocard = False
     
     def zoom(self, zoom_increment):
         self.rect.center = playarea.gridtopixel(self.loc)
@@ -224,10 +225,12 @@ p1_fleetfile.close()
 
 fleetpanel.battlegroups = p1fleetlist
 
-ship1 = Ship(playarea,shipclass='Bellerophon')
-draggables.append(ship1)
-sprites.add(ship1)
-ships.add(ship1)
+for bg in p1fleetlist:
+    for group in bg.groups:
+        for ship1 in group:
+            draggables.append(ship1)
+            sprites.add(ship1)
+            ships.add(ship1)
 
 selectedship = None
 
@@ -250,7 +253,7 @@ while True:
             if event.button == 1:
                 # print(playarea.pixeltogrid(event.pos))
                 for ship in ships:
-                    if ship.rect.collidepoint(pygame.mouse.get_pos()):
+                    if ship.rect.collidepoint(event.pos):
                         if ship != selectedship:
                             selectedship = ship
                             draggables.remove(ship)
@@ -258,6 +261,7 @@ while True:
                             selectoffset_x = ship.rect.center[0] - event.pos[0]
                             selectoffset_y = ship.rect.center[1] - event.pos[1]
                             ship.is_selected = True
+                            break
                             # print(f'initial bearing {ship.bearing}')
                         else:
                             draggables.append(ship)
@@ -353,6 +357,8 @@ while True:
                 for index, draggable in enumerate(draggables):
                     draggable.rect.x = mouse_x + draggable_offsets[index][0]
                     draggable.rect.y = mouse_y + draggable_offsets[index][1]
+            for ship in ships:
+                ship.display_infocard = ship.rect.collidepoint(event.pos)
 
     # pygame.draw.rect(DISPLAYSURF,(255,255,255),rectangle)
     sprites.draw(DISPLAYSURF)
@@ -388,11 +394,16 @@ while True:
         selectedship.draw_firingarcs(DISPLAYSURF)
         pygame.draw.line(DISPLAYSURF, selection_color, playarea.gridtopixel(selectedship.loc), selectedship.rect.center)
         # DISPLAYSURF.blit(sprite.image,(sprite.x, sprite.y))
+    else:
+        for ship in ships:
+            if ship.display_infocard:
+                infocard_bg = pygame.Rect(ship.rect.right,ship.rect.top+20,200,20)
+                pygame.draw.rect(DISPLAYSURF,(100,100,100),infocard_bg)
     
     for ui_el in ui:
         ui_el.draw(DISPLAYSURF)
-    # fps_font_surface = fps_font.render(str(INTERNALCLOCK.get_fps()),False,(255,255,255))
-    # DISPLAYSURF.blit(fps_font_surface,(0,0))
+    fps_font_surface = fps_font.render(str(INTERNALCLOCK.get_fps()),False,(255,255,255))
+    DISPLAYSURF.blit(fps_font_surface,(0,0))
 
     INTERNALCLOCK.tick()
     pygame.display.flip()
