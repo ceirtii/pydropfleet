@@ -2,25 +2,43 @@ import pygame, sys, math
 import numpy as np
 from pygame.locals import *
 from enum import Enum, auto
+import csv
 
 selection_color = (255,0,0)
+shipfile = open('ships.csv', encoding="utf-8-sig")
+shipreader = csv.reader(shipfile)
+shipDB = dict()
+for row in shipreader:
+    shipname,faction,scan,sig,thrust,hull,armor,pd = row
+    stats = {'faction':faction,'scan':int(scan),'sig':int(sig),'thrust':int(thrust),'hull':int(hull),'armor':int(armor),'pd':int(pd)}
+    shipDB.update({shipname:stats})
+print(shipDB)
+shipfile.close()
 
 class Ship(pygame.sprite.Sprite):
 
-    def __init__(self, playarea, loc=(10.0,10.0), name='test'):
+    def __init__(self, playarea, loc=(10.0,10.0), name='test', shipclass='test'):
        pygame.sprite.Sprite.__init__(self)
+       self.shipclass = shipclass
+       self.scan = shipDB[shipclass]['scan']
+       self.sig = shipDB[shipclass]['sig']
+       self.thrust = shipDB[shipclass]['thrust']
+       self.hull = shipDB[shipclass]['hull']
+       self.hp = self.hull
+       self.armor = shipDB[shipclass]['armor']
+       self.pd = shipDB[shipclass]['pd']
+
        self.image0 = pygame.image.load('blueship.png').convert_alpha()
        self.scale = .2
-       self.image = pygame.transform.rotozoom(self.image0, 90, self.scale)
+       self.bearing = 0
+       self.image = pygame.transform.rotozoom(self.image0, self.bearing, self.scale)
        self.rect = self.image.get_rect()
        self.playarea = playarea
        self.loc = loc
        self.rect.center = playarea.gridtopixel(loc)
        self.is_selected = False
        self.selection_loc = None
-       self.bearing = 0
        self.selection_bearing = None
-       self.thrust = 10
        self.name = name
        self.order = ShipOrder.STANDARD
        self.minthrust = self.thrust/2
@@ -42,7 +60,7 @@ class Ship(pygame.sprite.Sprite):
             self.selection_loc = None
             self.loc = playarea.pixeltogrid(self.rect.center)
             self.selection_bearing = None
-        print(f'new location {self.loc}')
+        # print(f'new location {self.loc}')
 
 class ShipOrder(Enum):
     STANDARD = auto()
@@ -89,7 +107,7 @@ class PlayArea(pygame.sprite.Sprite):
         return dist/self.dim[0]*self.rect.width
 
 class CombatLog:
-    def __init__(self, surf):
+    def __init__(self, surf=None):
         self.log = []
         self.width = 0
         self.height = 0
@@ -127,6 +145,40 @@ class CombatLog:
             return
         self.currentline += dir
 
+class FleetPanel:
+    def __init__(self):
+        self.battlegroups = []
+        self.width = 0
+        self.height = 0
+        self.rect = None
+        self.color = (50,50,50)
+    
+    def draw(self, surf):
+        self.width = int(surf.get_width()*.4)
+        self.height = int(surf.get_height()*.2)
+        self.rect = pygame.Rect(int(surf.get_width()*.3),surf.get_height()-self.height,self.width,self.height)
+        pygame.draw.rect(surf, self.color, self.rect)
+
+    def scroll(self, dir):
+        pass
+
+class Battlegroup:
+    def __init__(self, sr, size, points):
+        self.size = size
+        self.sr = sr
+        self.points = points
+        self.groups = []
+
+    def __str__(self):
+        out_str = f'SR{self.sr} {self.size} {self.points} pts'
+        for group in self.groups:
+            out_str += f'\n{len(group)} {group[0].shipclass}'
+        return out_str
+
+class ShipGroup:
+    def __init__(self):
+        pass
+
 pygame.init()
 DISPLAYSURF = pygame.display.set_mode((1600,900), pygame.RESIZABLE)
 pygame.display.set_caption('Hello World!')
@@ -148,13 +200,34 @@ playarea.rect = playarea.image.get_rect()
 draggables.append(playarea)
 sprites.add(playarea)
 
-ship1 = Ship(playarea)
+combatlog = CombatLog()
+ui.append(combatlog)
+fleetpanel = FleetPanel()
+ui.append(fleetpanel)
+
+p1_fleetfile = open('p1.txt','r')
+p1_fleetfile_lines = p1_fleetfile.readlines()
+currentBG = None
+p1fleetlist = []
+# BG_sizemap = {'Pathfinder':1, 'Line':2, 'Vanguard':3, 'Flag':4}
+for line in p1_fleetfile_lines:
+    if line.startswith('SR'):
+        vals = line.split()
+        currentBG = Battlegroup(vals[0][2:], vals[1], vals[3][1:-4])
+        p1fleetlist.append(currentBG)
+    elif line[0].isdigit():
+        vals = line.split()
+        currentBG.groups.append([Ship(playarea,shipclass=vals[2]) for i in range(int(vals[0]))])
+for bg in p1fleetlist:
+    print(bg)
+p1_fleetfile.close()
+
+fleetpanel.battlegroups = p1fleetlist
+
+ship1 = Ship(playarea,shipclass='Bellerophon')
 draggables.append(ship1)
 sprites.add(ship1)
 ships.add(ship1)
-
-combatlog = CombatLog(DISPLAYSURF)
-ui.append(combatlog)
 
 selectedship = None
 
@@ -193,7 +266,7 @@ while True:
                             ship.loc = playarea.pixeltogrid(ship.rect.center)
                             ship.selection_loc = None
                             ship.bearing = ship.selection_bearing
-                            combatlog.log.append(f'{ship.name} moved to {ship.loc[0]:.1f}, {ship.loc[1]:.1f} bearing {ship.bearing}')
+                            combatlog.log.append(f'{ship.name} moved to {ship.loc[0]:.1f}, {ship.loc[1]:.1f} bearing {ship.bearing:.3f}')
 
             if event.button == 3:            
                 dragging = True
@@ -246,7 +319,7 @@ while True:
                     # if dist == 0: dist = .001
                 else:
                     thrust = dist
-                print(f'thrust {thrust}')
+                # print(f'thrust {thrust}')
                     # center_x = (selectedship.selection_loc[0] - selectedship.loc[0])/dist*thrust + selectedship.loc[0]
                     # center_y = (selectedship.selection_loc[1] - selectedship.loc[1])/dist*thrust + selectedship.loc[1]
                     # center = playarea.gridtopixel((center_x,center_y))
@@ -256,10 +329,10 @@ while True:
                 x = center[0] - move_pos[0]
                 y = center[1] - move_pos[1]
                 bearing = math.atan2(x,-y)
-                print(f'new bearing {bearing}')
+                # print(f'new bearing {bearing}')
 
                 bearing_change = bearing + math.radians(selectedship.bearing)
-                print(f'bearing change {bearing_change}')
+                # print(f'bearing change {bearing_change}')
                 if bearing_change < -math.pi:
                     bearing_change = bearing_change + 2 * math.pi
                 if bearing_change < -math.radians(45):
