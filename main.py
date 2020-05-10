@@ -1,8 +1,8 @@
 import pygame, sys, math
 # import numpy as np
 from pygame.locals import *
-from enum import Enum, auto
-import csv
+from ship import *
+from guns import *
 
 nord0 = (46,52,64)
 nord1 = (59,66,82)
@@ -20,80 +20,6 @@ aurora1 = (208,135,112)
 aurora2 = (235,203,139)
 aurora3 = (163,190,140)
 aurora4 = (180,142,173)
-
-shipfile = open('ships.csv', encoding="utf-8-sig")
-shipreader = csv.reader(shipfile)
-shipDB = dict()
-for row in shipreader:
-    print(row)
-    shipname,faction,scan,sig,thrust,hull,armor,pd,shiptype = row
-    stats = {'faction':faction,'scan':int(scan),'sig':int(sig),'thrust':int(thrust),'hull':int(hull),'armor':int(armor),'pd':int(pd),'type':shiptype}
-    shipDB.update({shipname:stats})
-print(shipDB)
-shipfile.close()
-
-class Ship(pygame.sprite.Sprite):
-
-    def __init__(self, playarea, loc=(10.0,10.0), name='test', shipclass='test'):
-       pygame.sprite.Sprite.__init__(self)
-       self.shipclass = shipclass
-       self.faction = shipDB[shipclass]['faction']
-       self.scan = shipDB[shipclass]['scan']
-       self.sig = shipDB[shipclass]['sig']
-       self.thrust = shipDB[shipclass]['thrust']
-       self.hull = shipDB[shipclass]['hull']
-       self.hp = self.hull
-       self.armor = shipDB[shipclass]['armor']
-       self.pd = shipDB[shipclass]['pd']
-       self.shiptype = shipDB[shipclass]['type']
-
-       self.image0 = pygame.image.load('blueship.png').convert_alpha()
-       self.scale = .05
-       self.bearing = 0
-       self.image = pygame.transform.rotozoom(self.image0, self.bearing, self.scale)
-       self.rect = self.image.get_rect()
-       self.playarea = playarea
-       self.loc = loc
-       self.rect.center = playarea.gridtopixel(loc)
-       self.is_selected = False
-       self.selection_loc = None
-       self.selection_bearing = None
-       self.name = name
-       self.order = ShipOrder.STANDARD
-       self.minthrust = self.thrust/2
-       self.maxthrust = self.thrust
-       self.hover = False
-    
-    def zoom(self, zoom_increment):
-        self.rect.center = playarea.gridtopixel(self.loc)
-        pass
-
-    def draw_firingarcs(self, surf):
-        pass
-        # surf.draw
-    
-    def update_loc(self, playarea):
-        if self.is_selected:
-            self.selection_loc = playarea.pixeltogrid(self.rect.center)
-            self.selection_bearing = self.bearing
-        else:
-            self.selection_loc = None
-            self.loc = playarea.pixeltogrid(self.rect.center)
-            self.selection_bearing = None
-        # print(f'new location {self.loc}')
-    
-    def __str__(self):
-        out_str = f'{self.shipclass}-class {self.faction} {self.name}'
-        return out_str
-
-class ShipOrder(Enum):
-    STANDARD = auto()
-    WEAPONSFREE = auto()
-    STATIONKEEPING = auto()
-    COURSECHANGE = auto()
-    MAXTHRUST = auto()
-    SILENTRUNNING = auto()
-    ACTIVESCAN = auto()
 
 class PlayArea(pygame.sprite.Sprite):
     def __init__(self):
@@ -131,7 +57,7 @@ class PlayArea(pygame.sprite.Sprite):
         return dist/self.dim[0]*self.rect.width
 
 class CombatLog:
-    def __init__(self, surf=None, width_frac=.6):
+    def __init__(self, surf=None, width_frac=.3):
         self.log = []
         self.width = 0
         self.height = 0
@@ -144,7 +70,7 @@ class CombatLog:
     def draw(self, surf):
         self.width = int(surf.get_width()*self.width_frac)
         self.height = int(surf.get_height()*.2)
-        self.rect = pygame.Rect(surf.get_width()/2-self.width/2,surf.get_height()-self.height,self.width,self.height)
+        self.rect = pygame.Rect(surf.get_width()/2-self.width,surf.get_height()-self.height,self.width,self.height)
         pygame.draw.rect(surf, self.color, self.rect)
         
         printloglines = self.log.copy()
@@ -204,26 +130,26 @@ class FleetPanel:
         y = self.rect.top + buffer
         for bg in self.battlegroups:
             font_render = line_font.render(str(bg),True,snow0)
-            self.surf.blit(font_render,(self.rect.left + buffer, y))
+            self.surf.blit(font_render,(buffer, y))
             y = y + line_height + buffer
             for group in bg.groups:
                 for ship in group:
                     font_render = line_font.render(f'{ship.faction} {ship.name}',True,snow1)
                     class_render = minor_font.render(f'{ship.shipclass}-class {ship.shiptype}',True,snow2)
                     box_height = line_height+2*minor_height+buffer
-                    ship_box = pygame.Rect(self.rect.left+1.5*buffer, y-buffer/2, self.width-2*buffer, box_height)
+                    ship_box = pygame.Rect(1.5*buffer, y-buffer/2, self.width-2*buffer, box_height)
                     pygame.draw.rect(self.surf, nord2, ship_box)
 
                     hull_string = f'{ship.hp}/{ship.hull}'
                     hull_string_width = line_font.size(hull_string)[0]
                     hull_render = line_font.render(hull_string, True, snow1)
-                    self.surf.blit(hull_render, (self.rect.right-buffer-hull_string_width, y))
+                    self.surf.blit(hull_render, (self.rect.width-buffer-hull_string_width, y))
 
                     if ship.hover:
                         pygame.draw.rect(self.surf, frost0, ship_box, 2)
-                    self.surf.blit(font_render, (self.rect.left + 2 * buffer, y))
+                    self.surf.blit(font_render, (2 * buffer, y))
                     y = y + line_height
-                    self.surf.blit(class_render, (self.rect.left + 2 * buffer, y))
+                    self.surf.blit(class_render, (2 * buffer, y))
                     y = y + minor_height + buffer
 
                     hull_bar_length = ship_box.width-2*buffer
@@ -237,6 +163,7 @@ class FleetPanel:
                     
                 y = y + buffer
         self.content_height = y
+        # surf.blit(self.surf,(0,0))
         surf.blit(self.surf,self.rect.topleft)
 
     def scroll(self, dir):
@@ -246,6 +173,16 @@ class FleetPanel:
         if self.content_height <= self.height - self.rect.y and dir < 0:
             return
         self.rect.y = self.rect.y + dir*scrollspeed
+
+class InfoPanel:
+    def __init__(self):
+        pass
+
+    def draw(self, surf):
+        pass
+
+    def scroll(self, dir):
+        pass
 
 class Battlegroup:
     def __init__(self, sr, size, points):
@@ -265,7 +202,7 @@ class ShipGroup:
         pass
 
 pygame.init()
-DISPLAYSURF = pygame.display.set_mode((1600,900), pygame.RESIZABLE)
+DISPLAYSURF = pygame.display.set_mode((1600,900), pygame.RESIZABLE)# | pygame.OPENGLBLIT)
 pygame.display.set_caption('Hello World!')
 INTERNALCLOCK = pygame.time.Clock()
 fps_font = pygame.font.Font(None, 20)
@@ -275,6 +212,10 @@ draggables = []
 draggable_offsets = []
 playobjects = []
 ships = pygame.sprite.Group()
+
+# Ship.load_shipDB()
+# Weapon.load_gunDB()
+
 ui = []
 ui_needs_update = True
 
@@ -288,7 +229,7 @@ sprites.add(playarea)
 
 combatlog = CombatLog()
 ui.append(combatlog)
-p1_fleetpanel = FleetPanel('left',)
+p1_fleetpanel = FleetPanel('left')
 p2_fleetpanel = FleetPanel('right')
 ui.append(p1_fleetpanel)
 ui.append(p2_fleetpanel)
@@ -333,14 +274,15 @@ dragging = False
 
 while True:
 
-    DISPLAYSURF.fill((0,0,0))
+    pygame.draw.rect(DISPLAYSURF,(0,0,0),pygame.Rect(0,0,DISPLAYSURF.get_width(),DISPLAYSURF.get_height()))
+    # DISPLAYSURF.fill((0,0,0))
 
     for event in pygame.event.get():
         if event.type == QUIT:
             pygame.quit()
             sys.exit()
         elif event.type == pygame.VIDEORESIZE:
-            DISPLAYSURF = pygame.display.set_mode((event.w,event.h), pygame.RESIZABLE)
+            DISPLAYSURF = pygame.display.set_mode((event.w,event.h), pygame.RESIZABLE)# | pygame.OPENGLBLIT)
         elif event.type == MOUSEBUTTONDOWN:
             # DISPLAYSURF.set_at(pygame.mouse.get_pos(), Color(255,0,0))
             # print(pygame.mouse.get_pos())
@@ -519,7 +461,7 @@ while True:
     
     for ui_el in ui:
         ui_el.draw(DISPLAYSURF)
-    fps_font_surface = fps_font.render(str(INTERNALCLOCK.get_fps()),False,(255,255,255))
+    fps_font_surface = fps_font.render(f'{INTERNALCLOCK.get_fps():.1f}',False,(255,255,255))
     DISPLAYSURF.blit(fps_font_surface,(0,0))
 
     INTERNALCLOCK.tick()
