@@ -57,12 +57,13 @@ class PlayArea(pygame.sprite.Sprite):
         return dist/self.dim[0]*self.rect.width
 
 class CombatLog:
-    def __init__(self, surf=None, width_frac=.3):
+    def __init__(self, font_obj, width_frac=.3):
         self.log = []
         self.width = 0
         self.height = 0
         self.rect = None
         self.color = nord1
+        self.line_font = font_obj
         self.font_color = snow0
         self.currentline = 0
         self.width_frac = width_frac
@@ -70,13 +71,19 @@ class CombatLog:
     def draw(self, surf):
         self.width = int(surf.get_width()*self.width_frac)
         self.height = int(surf.get_height()*.2)
-        self.rect = pygame.Rect(surf.get_width()/2-self.width,surf.get_height()-self.height,self.width,self.height)
+        x = surf.get_width()/2-self.width
+        y = surf.get_height()-self.height
+        if not self.rect:
+            self.rect = pygame.Rect(x,y,self.width,self.height)
+        else:
+            self.rect.topleft = (x, y)
+            self.rect.size = (self.width, self.height)
         pygame.draw.rect(surf, self.color, self.rect)
         
         printloglines = self.log.copy()
         printloglines.reverse()
-        line_font = pygame.font.Font('kooten.ttf', 20)
-        line_height = line_font.size('')[1]
+        # line_font = pygame.font.Font('kooten.ttf', 20)
+        line_height = self.line_font.size('')[1]
         lines = int(self.height/line_height)
         if lines < len(printloglines):
             printloglines = printloglines[self.currentline:lines+self.currentline]
@@ -84,7 +91,7 @@ class CombatLog:
 
         line_pixel = 0
         for line in printloglines:
-            line_font_surface = line_font.render(line,True,self.font_color)
+            line_font_surface = self.line_font.render(line,True,self.font_color)
             surf.blit(line_font_surface,(self.rect.x, self.rect.y + line_pixel))
             line_pixel += line_height
     
@@ -99,12 +106,14 @@ class CombatLog:
         self.currentline += dir
 
 class FleetPanel:
-    def __init__(self, side, width_frac=.2):
+    def __init__(self, side, major_font, minor_font, width_frac=.2):
         self.battlegroups = []
         self.width = 0
         self.height = 0
         self.rect = pygame.Rect(0,0,self.width,self.height)
         self.color = nord0
+        self.line_font = major_font
+        self.minor_font = minor_font
         self.side = side
         self.width_frac = width_frac
         self.surf = None
@@ -122,28 +131,35 @@ class FleetPanel:
         
         pygame.draw.rect(surf, self.color, self.rect)
 
-        line_font = pygame.font.Font('kooten.ttf', 18)
-        minor_font = pygame.font.Font('kooten.ttf', 14)
-        line_height = line_font.size('')[1]
-        minor_height = minor_font.size('')[1]
+        # line_font = pygame.font.Font('kooten.ttf', 18)
+        # minor_font = pygame.font.Font('kooten.ttf', 14)
+        line_height = self.line_font.size('')[1]
+        minor_height = self.minor_font.size('')[1]
         buffer = line_height/2
         y = self.rect.top + buffer
         for bg in self.battlegroups:
-            font_render = line_font.render(str(bg),True,snow0)
+            bg_top = y
+            if bg.state == 'activated':
+                bg_color = nord3
+            if bg.state == 'active':
+                bg_color = frost0
+            if bg.state == 'not yet active':
+                bg_color = snow0
+            font_render = self.line_font.render(str(bg),True,bg_color)
             self.surf.blit(font_render,(buffer, y))
             y = y + line_height + buffer
             for group in bg.groups:
                 for ship in group:
-                    font_render = line_font.render(f'{ship.faction} {ship.name}',True,snow1)
-                    class_render = minor_font.render(f'{ship.shipclass}-class {ship.shiptype}',True,snow2)
+                    font_render = self.line_font.render(f'{ship.faction} {ship.name}',True,snow1)
+                    class_render = self.minor_font.render(f'{ship.shipclass}-class {ship.shiptype}',True,snow2)
                     box_height = line_height+2*minor_height+buffer
-                    ship_box = pygame.Rect(1.5*buffer, y-buffer/2, self.width-2*buffer, box_height)
+                    ship_box = pygame.Rect(1.5*buffer, y-buffer/2, self.width-3*buffer, box_height)
                     pygame.draw.rect(self.surf, nord2, ship_box)
 
                     hull_string = f'{ship.hp}/{ship.hull}'
-                    hull_string_width = line_font.size(hull_string)[0]
-                    hull_render = line_font.render(hull_string, True, snow1)
-                    self.surf.blit(hull_render, (self.rect.width-buffer-hull_string_width, y))
+                    hull_string_width = self.line_font.size(hull_string)[0]
+                    hull_render = self.line_font.render(hull_string, True, snow1)
+                    self.surf.blit(hull_render, (self.rect.width-2*buffer-hull_string_width, y))
 
                     if ship.hover:
                         pygame.draw.rect(self.surf, frost0, ship_box, 2)
@@ -159,9 +175,10 @@ class FleetPanel:
                     pygame.draw.line(self.surf,aurora3,(hp_start,y),(hp_end,y))
                     pygame.draw.line(self.surf,aurora0,(hp_end,y),(hull_end,y))
 
-                    y = y + 2*buffer
-                    
+                    y = y + 2*buffer                    
                 y = y + buffer
+            if bg.state == 'active':
+                pygame.draw.rect(self.surf, frost0, pygame.Rect(.5*buffer, bg_top-.5*buffer, self.width-buffer, y-bg_top-.5*buffer), 2)
         self.content_height = y
         # surf.blit(self.surf,(0,0))
         surf.blit(self.surf,self.rect.topleft)
@@ -175,11 +192,39 @@ class FleetPanel:
         self.rect.y = self.rect.y + dir*scrollspeed
 
 class InfoPanel:
-    def __init__(self):
-        pass
+    def __init__(self, major_font, minor_font, height_frac=.2, width_frac=.3):
+        self.selectedship = None
+        self.rect = None
+        self.height_frac = height_frac
+        self.width_frac = width_frac
+        self.color = nord2
+        self.buffer = 10
+        self.line_font = major_font
+        self.minor_font = minor_font
 
     def draw(self, surf):
-        pass
+        self.rect = pygame.Rect(surf.get_width()/2,surf.get_height()*(1-self.height_frac),surf.get_width()*self.width_frac,surf.get_height()*self.height_frac)
+        pygame.draw.rect(surf, self.color, self.rect)
+        
+        # line_font = pygame.font.Font('kooten.ttf', 18)
+        # minor_font = pygame.font.Font('kooten.ttf', 14)
+        line_height = self.line_font.size('')[1]
+        minor_height = self.minor_font.size('')[1]
+
+        y = self.rect.top + self.buffer
+        header_render = self.line_font.render('Ship Info',True,snow0)
+        surf.blit(header_render, (self.rect.left+self.buffer,y))
+        y = y + line_height# + self.buffer
+
+        # print(f'selected ship {self.selectedship}')
+        if self.selectedship:
+            shipname_render = self.line_font.render(f'{self.selectedship.name}, {self.selectedship.shipclass}-class {self.selectedship.shiptype}', True, snow0)
+            surf.blit(shipname_render, (self.rect.left+self.buffer,y))
+            y = y + line_height
+            for gun in self.selectedship.guns:
+                gun_render = self.minor_font.render(str(gun), True, frost0)
+                surf.blit(gun_render, (self.rect.left+self.buffer,y))
+                y = y + minor_height
 
     def scroll(self, dir):
         pass
@@ -190,6 +235,7 @@ class Battlegroup:
         self.sr = sr
         self.points = points
         self.groups = []
+        self.state = 'not yet active'
 
     def __str__(self):
         out_str = f'SR{self.sr} {self.size} {self.points} pts'
@@ -201,9 +247,40 @@ class ShipGroup:
     def __init__(self):
         pass
 
+class GameState:
+    def __init__(self, title_font, major_font):
+        self.current_state = 'Setup'
+        self.title_font = title_font
+        self.rect = pygame.Rect(0,0,0,0)
+        self.major_font = major_font
+        self.p1_battlegroups = []
+        self.p2_battlegroups = []
+    
+    def draw(self, surf):
+        state_text = f'{self.current_state} Phase'
+        gamephase_render = self.title_font.render(state_text, True, snow0)
+        gamephase_render_size = self.title_font.size(state_text)
+        surf.blit(gamephase_render, ((surf.get_width()-gamephase_render_size[0])/2,0))
+
+        endturn = 'End Turn'
+        endturnbutton_render = self.major_font.render(endturn, True, snow0)
+        endturnbutton_render_width = self.major_font.size(endturn)
+        self.rect.left = (surf.get_width()-endturnbutton_render_width[0])/2
+        self.rect.top = gamephase_render_size[1]
+        self.rect.size = endturnbutton_render_width
+        pygame.draw.rect(surf, nord3, self.rect)
+        surf.blit(endturnbutton_render, (self.rect.left,self.rect.top))
+    
+    def next_phase(self):
+        # print('changing phase')
+        if self.current_state == 'Setup':
+            # print('movement phase')
+            self.current_state = 'Movement'
+        # print(f'now on phase {self.current_state}')
+
 pygame.init()
 DISPLAYSURF = pygame.display.set_mode((1600,900), pygame.RESIZABLE)# | pygame.OPENGLBLIT)
-pygame.display.set_caption('Hello World!')
+pygame.display.set_caption('Dropfleet Commander')
 INTERNALCLOCK = pygame.time.Clock()
 fps_font = pygame.font.Font(None, 20)
 
@@ -227,12 +304,21 @@ playarea.rect = playarea.image.get_rect()
 draggables.append(playarea)
 sprites.add(playarea)
 
-combatlog = CombatLog()
+title_font = pygame.font.Font('kooten.ttf', 24)
+major_font = pygame.font.Font('kooten.ttf', 18)
+minor_font = pygame.font.Font('kooten.ttf', 14)
+
+gamecontroller = GameState(title_font, major_font)
+ui.append(gamecontroller)
+
+combatlog = CombatLog(major_font)
 ui.append(combatlog)
-p1_fleetpanel = FleetPanel('left')
-p2_fleetpanel = FleetPanel('right')
+p1_fleetpanel = FleetPanel('left', major_font, minor_font)
+p2_fleetpanel = FleetPanel('right', major_font, minor_font)
 ui.append(p1_fleetpanel)
 ui.append(p2_fleetpanel)
+infopanel = InfoPanel(major_font, minor_font)
+ui.append(infopanel)
 
 p1_fleetfile = open('p1.txt','r')
 p1_fleetfile_lines = p1_fleetfile.readlines()
@@ -257,9 +343,13 @@ for fleetlist, lines in fleetfiles:
             currentBG.groups.append([Ship(playarea,shipclass=vals[2]) for i in range(int(vals[0]))])
 # for bg in p1fleetlist:
 #     print(bg)
+# currentBG.state = 'active'
 
 p1_fleetfile.close()
 p2_fleetfile.close()
+
+gamecontroller.p1_battlegroups = p1_fleetpanel.battlegroups
+gamecontroller.p2_battlegroups = p2_fleetpanel.battlegroups
 
 for bg in p1_fleetpanel.battlegroups + p2_fleetpanel.battlegroups:
     for group in bg.groups:
@@ -271,6 +361,8 @@ for bg in p1_fleetpanel.battlegroups + p2_fleetpanel.battlegroups:
 selectedship = None
 
 dragging = False
+
+
 
 while True:
 
@@ -289,25 +381,30 @@ while True:
 
             if event.button == 1:
                 # print(playarea.pixeltogrid(event.pos))
+                if gamecontroller.rect.collidepoint(event.pos):
+                    # print('next phase')
+                    gamecontroller.next_phase()
+                    break
                 for ship in ships:
                     if ship.rect.collidepoint(event.pos):
-                        if ship != selectedship:
-                            selectedship = ship
-                            draggables.remove(ship)
-                            # pos0 = playarea.pixeltogrid(ship.rect.center)
-                            selectoffset_x = ship.rect.center[0] - event.pos[0]
-                            selectoffset_y = ship.rect.center[1] - event.pos[1]
-                            ship.is_selected = True
-                            break
-                            # print(f'initial bearing {ship.bearing}')
-                        else:
-                            draggables.append(ship)
-                            selectedship = None
-                            ship.is_selected = False
-                            ship.loc = playarea.pixeltogrid(ship.rect.center)
-                            ship.selection_loc = None
-                            ship.bearing = ship.selection_bearing
-                            combatlog.log.append(f'{ship.name} moved to {ship.loc[0]:.1f}, {ship.loc[1]:.1f} bearing {ship.bearing:.3f}')
+                        if gamecontroller.current_state in ['Movement','Setup']:
+                            if ship != selectedship:
+                                selectedship = ship
+                                draggables.remove(ship)
+                                # pos0 = playarea.pixeltogrid(ship.rect.center)
+                                selectoffset_x = ship.rect.center[0] - event.pos[0]
+                                selectoffset_y = ship.rect.center[1] - event.pos[1]
+                                ship.is_selected = True
+                                break
+                                # print(f'initial bearing {ship.bearing}')
+                            else:
+                                draggables.append(ship)
+                                selectedship = None
+                                ship.is_selected = False
+                                ship.loc = playarea.pixeltogrid(ship.rect.center)
+                                ship.selection_loc = None
+                                ship.bearing = ship.selection_bearing
+                                combatlog.log.append(f'{ship.name} moved to {ship.loc[0]:.1f}, {ship.loc[1]:.1f} bearing {ship.bearing:.3f}')
 
             if event.button == 3:            
                 dragging = True
@@ -345,7 +442,18 @@ while True:
                 dragging = False
 
         elif event.type == pygame.MOUSEMOTION:
-            if selectedship:
+            if gamecontroller.current_state == 'Setup' and selectedship:
+                center = (selectoffset_x + event.pos[0], selectoffset_y + event.pos[1])
+                selectedship.selection_loc = playarea.pixeltogrid(center) #grid location of ship when selected
+                center = playarea.gridtopixel(selectedship.selection_loc)
+
+                selectedship.image = pygame.transform.rotozoom(selectedship.image0, selectedship.bearing, selectedship.scale)
+                selectedship.rect = selectedship.image.get_rect()
+                selectedship.rect.center = center
+
+                selectedship.selection_bearing = selectedship.bearing
+
+            if gamecontroller.current_state == 'Movement' and selectedship:
                 center = (selectoffset_x + event.pos[0], selectoffset_y + event.pos[1])
                 selectedship.selection_loc = playarea.pixeltogrid(center) #grid location of ship when selected
                 center = playarea.gridtopixel(selectedship.selection_loc)
@@ -410,19 +518,24 @@ while True:
                 for ship in ships:
                     if ship.rect.collidepoint(pygame.mouse.get_pos()):
                         ship.hp = ship.hp - 1
+        
+    # pygame.draw.rect(DISPLAYSURF,(255,255,255),rectangle)
+    sprites.draw(DISPLAYSURF)
                     
+    infopanel.selectedship = None
     for ship in ships:
         shiphovered = False
         if ship.rect.collidepoint(pygame.mouse.get_pos()) and not shiphovered:
             ship.hover = True
+            pygame.draw.rect(DISPLAYSURF, frost1, ship.rect, 1)
+            if not infopanel.selectedship:
+                infopanel.selectedship = ship
             shiphovered = True
         else:
             ship.hover = False
-        
-    # pygame.draw.rect(DISPLAYSURF,(255,255,255),rectangle)
-    sprites.draw(DISPLAYSURF)
+
     # for ship in ships:
-    if selectedship:
+    if gamecontroller.current_state == 'Movement' and selectedship:
         # selectedship.update_loc(playarea)
         pygame.draw.rect(DISPLAYSURF, frost1, selectedship.rect,1)
 
@@ -453,15 +566,16 @@ while True:
         selectedship.draw_firingarcs(DISPLAYSURF)
         pygame.draw.line(DISPLAYSURF, frost0, playarea.gridtopixel(selectedship.loc), selectedship.rect.center)
         # DISPLAYSURF.blit(sprite.image,(sprite.x, sprite.y))
-    else:
-        for ship in ships:
-            if ship.hover:
-                infocard_bg = pygame.Rect(ship.rect.right,ship.rect.top+20,200,20)
-                pygame.draw.rect(DISPLAYSURF,(100,100,100),infocard_bg)
+    # else:
+    #     for ship in ships:
+    #         if ship.hover:
+                # infocard_bg = pygame.Rect(ship.rect.right,ship.rect.top+20,200,20)
+                # pygame.draw.rect(DISPLAYSURF,(100,100,100),infocard_bg)
     
     for ui_el in ui:
         ui_el.draw(DISPLAYSURF)
-    fps_font_surface = fps_font.render(f'{INTERNALCLOCK.get_fps():.1f}',False,(255,255,255))
+
+    fps_font_surface = fps_font.render(f'{INTERNALCLOCK.get_fps():.1f}', True, (255,255,255))
     DISPLAYSURF.blit(fps_font_surface,(0,0))
 
     INTERNALCLOCK.tick()

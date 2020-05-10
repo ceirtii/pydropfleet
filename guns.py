@@ -25,6 +25,9 @@ class Weapon:
             gunstats.update({'attack':row.pop(0)})
             gunstats.update({'damage':row.pop(0)})
             Weapon.gunDB.update({guntype:gunstats})
+        
+    def __str__(self):
+        return f'{self.guntype} lock: {self.lock}, attack: {self.attack}, damage: {self.damage}'
 
 class LaunchAsset():
     def __init__(self):

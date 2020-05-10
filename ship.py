@@ -2,13 +2,15 @@ import pygame
 import csv
 from enum import Enum, auto
 from guns import *
+import copy
 
 class Ship(pygame.sprite.Sprite):
     shipDB = dict()
     shipgunsDB = dict()
     shiplaunchDB = dict()
+    ship_counter = 1
 
-    def __init__(self, playarea, loc=(10.0,10.0), name='test', shipclass='test'):
+    def __init__(self, playarea, shipclass, loc=(10.0,10.0), name=None):
         pygame.sprite.Sprite.__init__(self)
         if not Ship.shipDB:
             Ship.load_shipDB()
@@ -22,6 +24,9 @@ class Ship(pygame.sprite.Sprite):
         self.armor = Ship.shipDB[shipclass]['armor']
         self.pd = Ship.shipDB[shipclass]['pd']
         self.shiptype = Ship.shipDB[shipclass]['type']
+        self.guns = []
+        for gun in Ship.shipgunsDB[self.shipclass]:
+            self.guns.append(copy.copy(gun))
 
         self.image0 = pygame.image.load('blueship.png').convert_alpha()
         self.scale = .05
@@ -34,7 +39,11 @@ class Ship(pygame.sprite.Sprite):
         self.is_selected = False
         self.selection_loc = None
         self.selection_bearing = None
-        self.name = name
+        if not name:
+            self.name = f'test{Ship.ship_counter}'
+            Ship.ship_counter = Ship.ship_counter + 1
+        else:
+            self.name = name
         self.order = ShipOrder.STANDARD
         self.minthrust = self.thrust/2
         self.maxthrust = self.thrust
