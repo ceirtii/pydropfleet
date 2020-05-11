@@ -1,0 +1,94 @@
+[
+    {"shipclass":"Bellerophon",
+    "weapons":[{"guntype": "Twin Supernova Laser", "arc": "F(N)"}, {"guntype": "Wasp Drones", "arc": "F/S/R"}],
+    "launch":[{"launchtype": "Fighters & Bombers", "count": "4"}]
+    },
+    {"shipclass":"Pandora",
+    "weapons":[{"guntype": "Supernova Laser", "arc": "F(N)"}, {"guntype": "Mosquito Drones", "arc": "F/S/R"}],
+    "launch":[]
+    },
+    {"shipclass":"Beijing",
+    "weapons":[{"count": "2", "guntype": "UF-4200 Mass Driver Turret", "arc": "F/S(L)"}, {"count": "2", "guntype": "UF-4200 Mass Driver Turret", "arc": "F/S(R)"}, {"count": "3", "guntype": "UF-6400 Mass Driver Turret", "arc": "F/S"}, {"guntype": "Cobra Heavy Laser", "arc": "F(N)"}, {"guntype": "Swordfish Missile Bays", "arc": "F/S/R"}],
+    "launch":[]
+    },
+    {"shipclass":"New York",
+    "weapons":[{"count": "2", "guntype": "UF-4200 Mass Driver Turret", "arc": "F/S(L)"}, {"count": "2", "guntype": "UF-4200 Mass Driver Turret", "arc": "F/S(R)"}, {"guntype": "Shark Missile Bays", "arc": "F/S/R"}],
+    "launch":[{"launchtype": "Torpedo", "count": "1"}, {"launchtype": "Fighters & Bombers", "count": "7"}]
+    },
+    {"shipclass":"Tokyo",
+    "weapons":[{"count": "2", "guntype": "UF-4200 Mass Driver Turret", "arc": "F/S(L)"}, {"count": "2", "guntype": "UF-4200 Mass Driver Turret", "arc": "F/S(R)"}, {"count": "5", "linking": "1", "guntype": "UF-B-8000 Bombardment Turret", "arc": "F/S/R"}, {"count": "5", "linking": "1", "guntype": "UF-B-8000 Bombardment Turret", "arc": "F/S/R"}, {"guntype": "Cobra Heavy Laser", "arc": "F(N)"}, {"guntype": "Swordfish Missile Bays", "arc": "F/S/R"}],
+    "launch":[]
+    },
+    {"shipclass":"Calypso",
+    "weapons":[{"guntype": "Mosquito Drones", "arc": "F/S/R"}],
+    "launch":[]
+    },
+    {"shipclass":"Priam",
+    "weapons":[{"linking": "1", "guntype": "Light Calibre Broadside", "arc": "S(L)"}, {"linking": "1", "guntype": "Light Calibre Broadside", "arc": "S(R)"}, {"guntype": "Wasp Drones", "arc": "F/S/R"}],
+    "launch":[{"launchtype": "Fighters & Bombers", "count": "4"}]
+    },
+    {"shipclass":"Orpheus",
+    "weapons":[{"guntype": "Light Calibre Broadside", "arc": "S(L)"}, {"guntype": "Light Calibre Broadside", "arc": "S(R)"}, {"guntype": "Supernova Laser", "arc": "F(N)"}, {"guntype": "Wasp Drones", "arc": "F/S/R"}],
+    "launch":[{"launchtype": "Bulk Lander", "count": "2"}]
+    },
+    {"shipclass":"Medea",
+    "weapons":[{"guntype": "Bombardment Turret", "arc": "F/S"}, {"guntype": "Mosquito Drones", "arc": "F/S/R"}],
+    "launch":[{"launchtype": "Dropships", "count": "1"}]
+    },
+    {"shipclass":"Orion",
+    "weapons":[{"linking": "1", "guntype": "Medium Calibre Broadside", "arc": "S(L)"}, {"linking": "1", "guntype": "Medium Calibre Broadside", "arc": "S(R)"}, {"guntype": "Medium Calibre Turret", "arc": "F"}, {"guntype": "Wasp Drones", "arc": "F/S/R"}],
+    "launch":[]
+    },
+    {"shipclass":"Echo",
+    "weapons":[{"guntype": "Medium Calibre Turret", "arc": "F"}, {"guntype": "Vespa Drones", "arc": "F/S/R"}],
+    "launch":[]
+    },
+    {"shipclass":"Europa",
+    "weapons":[{"linking": "1", "guntype": "Medium Calibre Bank", "arc": "S(L)"}, {"linking": "1", "guntype": "Medium Calibre Bank", "arc": "S(R)"}, {"guntype": "Mosquito Drones", "arc": "F/S/R"}],
+    "launch":[]
+    },
+    {"shipclass":"Theseus",
+    "weapons":[{"linking": "1", "guntype": "Light Calibre Battery", "arc": "S(L)"}, {"linking": "2", "guntype": "Light Calibre Battery", "arc": "S(R)"}, {"linking": "1", "guntype": "Medium Calibre Battery", "arc": "S(L)"}, {"linking": "2", "guntype": "Medium Calibre Battery", "arc": "S(R)"}, {"guntype": "Wasp Drones", "arc": "F/S/R"}],
+    "launch":[]
+    },
+    {"shipclass":"Ikarus",
+    "weapons":[{"linking": "1", "guntype": "Medium Calibre Battery", "arc": "S(L)"}, {"linking": "1", "guntype": "Medium Calibre Battery", "arc": "S(R)"}, {"guntype": "Medium Calibre Turret", "arc": "F"}, {"guntype": "Wasp Drones", "arc": "F/S/R"}],
+    "launch":[{"launchtype": "Fighters & Bombers", "count": "2"}]
+    },
+    {"shipclass":"Moscow",
+    "weapons":[{"guntype": "UF-4200 Mass Driver Turret", "arc": "F/S(L)"}, {"guntype": "UF-4200 Mass Driver Turret", "arc": "F/S(R)"}, {"count": "2", "guntype": "UF-6400 Mass Driver Turret", "arc": "F/S"}, {"count": "2", "guntype": "UF-6400 Mass Driver Turret", "arc": "F/S"}, {"guntype": "Shark Missile Bays", "arc": "F/S/R"}],
+    "launch":[]
+    },
+    {"shipclass":"Jakarta",
+    "weapons":[{"guntype": "UF-2200 Mass Driver Turret", "arc": "F/S"}, {"guntype": "Barracuda Missile Bays", "arc": "F/S/R"}],
+    "launch":[]
+    },
+    {"shipclass":"Seattle",
+    "weapons":[{"count": "2", "guntype": "UF-6400 Mass Driver Turret", "arc": "F/S"}, {"guntype": "Shark Missile Bays", "arc": "F/S/R"}],
+    "launch":[{"launchtype": "Fighters & Bombers", "count": "3"}]
+    },
+    {"shipclass":"New Cairo",
+    "weapons":[{"guntype": "Cobra Heavy Laser", "arc": "F(N)"}, {"guntype": "Barracuda Missile Bays", "arc": "F/S/R"}],
+    "launch":[]
+    },
+    {"shipclass":"Lima",
+    "weapons":[{"guntype": "UF-2200 Mass Driver Turret", "arc": "F/S"}, {"guntype": "Barracuda Missile Bays", "arc": "F/S/R"}],
+    "launch":[]
+    },
+    {"shipclass":"Taipei",
+    "weapons":[{"guntype": "UF-2200 Mass Driver Turret", "arc": "F/S"}, {"guntype": "Piranha Missile Turrets", "arc": "F/S"}],
+    "launch":[]
+    },
+    {"shipclass":"Santiago",
+    "weapons":[{"guntype": "Stingray Missile Bays", "arc": "F/S/R"}],
+    "launch":[]
+    },
+    {"shipclass":"New Orleans",
+    "weapons":[{"guntype": "UF-2200 Mass Driver Turret", "arc": "F/S"}, {"guntype": "Barracuda Missile Bays", "arc": "F/S/R"}],
+    "launch":[{"launchtype": "Dropships", "count": "1"}]
+    },
+    {"shipclass":"Vancouver",
+    "weapons":[{"guntype": "Barracuda Missile Bays", "arc": "F/S/R"}],
+    "launch":[{"launchtype": "Fighters & Bombers", "count": "2"}]
+    }
+    ]

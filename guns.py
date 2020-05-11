@@ -1,4 +1,5 @@
 import csv
+import json
 
 class Weapon:
     gunDB = dict()
@@ -16,6 +17,15 @@ class Weapon:
 
     @staticmethod
     def load_gunDB():
+        gunfile = open('guns.json')
+        gunreader = json.load(gunfile)
+        for row in gunreader:
+            guntype = row['guntype']
+            row.pop('guntype')
+            Weapon.gunDB[guntype] = row
+
+    @staticmethod
+    def load_gunDB_csv():
         gunfile = open('guns.csv')
         gunreader = csv.reader(gunfile)
         for row in gunreader:
@@ -28,7 +38,15 @@ class Weapon:
         
     def __str__(self):
         return f'{self.guntype} lock: {self.lock}, attack: {self.attack}, damage: {self.damage}'
+    
+    def to_dict(self):
+        out = {'guntype':self.guntype, 'arc':self.arc, 'linked':self.linked, 'count':self.count}
+        return out
 
 class LaunchAsset():
-    def __init__(self):
-        pass
+    def __init__(self, faction, count):
+        self.faction = faction
+        self.count = count
+
+if __name__ == "__main__":
+    Weapon.load_gunDB()

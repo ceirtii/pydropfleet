@@ -3,6 +3,8 @@ import pygame, sys, math
 from pygame.locals import *
 from ship import *
 from guns import *
+# from queue import Queue
+import random
 
 nord0 = (46,52,64)
 nord1 = (59,66,82)
@@ -108,6 +110,7 @@ class CombatLog:
 class FleetPanel:
     def __init__(self, side, major_font, minor_font, width_frac=.2):
         self.battlegroups = []
+        self.battlegroups_originalorder = []
         self.width = 0
         self.height = 0
         self.rect = pygame.Rect(0,0,self.width,self.height)
@@ -137,13 +140,15 @@ class FleetPanel:
         minor_height = self.minor_font.size('')[1]
         buffer = line_height/2
         y = self.rect.top + buffer
-        for bg in self.battlegroups:
+        for bg in self.battlegroups_originalorder:
             bg_top = y
             if bg.state == 'activated':
                 bg_color = nord3
-            if bg.state == 'active':
+            elif bg.state == 'active':
                 bg_color = frost0
-            if bg.state == 'not yet active':
+            elif bg.state == 'pending active':
+                bg_color = frost2
+            elif bg.state == 'not yet active':
                 bg_color = snow0
             font_render = self.line_font.render(str(bg),True,bg_color)
             self.surf.blit(font_render,(buffer, y))
@@ -178,8 +183,11 @@ class FleetPanel:
 
                     y = y + 2*buffer                    
                 y = y + buffer
+            bg_boundary = pygame.Rect(.5*buffer, bg_top-.5*buffer, self.width-buffer, y-bg_top-.5*buffer)
             if bg.state == 'active' or bg.hovered:
-                pygame.draw.rect(self.surf, frost0, pygame.Rect(.5*buffer, bg_top-.5*buffer, self.width-buffer, y-bg_top-.5*buffer), 2)
+                pygame.draw.rect(self.surf, frost0, bg_boundary, 2)
+            elif bg.state == 'pending active':
+                pygame.draw.rect(self.surf, frost2, bg_boundary, 2)
         self.content_height = y
         # surf.blit(self.surf,(0,0))
         surf.blit(self.surf,self.rect.topleft)
@@ -233,11 +241,13 @@ class InfoPanel:
 class Battlegroup:
     def __init__(self, sr, size, points):
         self.size = size
-        self.sr = sr
+        self.sr = int(sr)
         self.points = points
         self.groups = []
         self.state = 'not yet active'
         self.hovered = False
+        self.up_arrow_rect = None
+        self.down_arrow_rect = None
 
     def __str__(self):
         out_str = f'SR{self.sr} {self.size} {self.points} pts'
@@ -270,22 +280,40 @@ class BattlegroupPlanner:
         major_font_height = self.major_font.size('')[1]
         minor_font_height = self.minor_font.size('')[1]
         buffer = major_font_height/2
-        height = len(self.bgs)*2*major_font_height+2*buffer
+        height = len(self.bgs)*(2*major_font_height+buffer)+buffer
         pygame.draw.rect(surf,nord1,pygame.Rect(x-buffer,y-buffer,self.width+2*buffer,height))
-        for bg in self.bgs:
+        arrow_offset = 20
+        # print(f'in draw {self.bgs}')
+        for index, bg in enumerate(self.bgs):
             bg_y = y
             mousepos = pygame.mouse.get_pos()
-            bg_render = self.major_font.render(str(bg), True, snow0)
+            bg_render = self.major_font.render(f'{str(bg)}', True, snow0)
             # pygame.draw.rect()
-            surf.blit(bg_render, (x,y))
+            surf.blit(bg_render, (x+arrow_offset,y))
+            if index != 0:
+                up_arrow_render = self.major_font.render('/\\', True, snow0)
+            else:
+                up_arrow_render = self.major_font.render('/\\', True, nord1)
+            bg.up_arrow_rect = up_arrow_render.get_rect()
+            bg.up_arrow_rect.topleft = (x,y)
+            surf.blit(up_arrow_render, (x,y))
             y = y + major_font_height
             bg_ships_render = self.minor_font.render(bg.printships(), True, frost0)
-            surf.blit(bg_ships_render, (x,y))
-            y = y + major_font_height
+            surf.blit(bg_ships_render, (x+arrow_offset,y))
+            if index != len(self.bgs)-1:
+                down_arrow_render = self.major_font.render('\\/', True, snow0)
+            else:
+                down_arrow_render = self.major_font.render('\\/', True, nord1)                
+            bg.down_arrow_rect = down_arrow_render.get_rect()
+            bg.down_arrow_rect.topleft = (x,y)
+            # print(bg.down_arrow_rect)
+            # print(f'setting bg down arrow rect at {(x,y)}')
+            surf.blit(down_arrow_render, (x,y))
+            y = y + major_font_height + buffer
             select_box = pygame.Rect(x,bg_y,self.width,y-bg_y)
             bg.hovered = select_box.collidepoint(mousepos)
 
-class GameState:
+class GameController:
     def __init__(self, title_font, major_font, minor_font):
         self.current_state = 'Setup'
         self.title_font = title_font
@@ -295,9 +323,14 @@ class GameState:
         self.p1_battlegroups = []
         self.p2_battlegroups = []
         self.bg_plan_screen = None
+        self.turn = 1
+        self.firstplayer = 0
+        self.p1_button = None
+        self.p2_button = None
+        # self.activation_queue = Queue()
     
     def draw(self, surf):
-        state_text = f'{self.current_state} Phase'
+        state_text = f'{self.current_state}'
         gamephase_render = self.title_font.render(state_text, True, snow0)
         gamephase_render_size = self.title_font.size(state_text)
         surf.blit(gamephase_render, ((surf.get_width()-gamephase_render_size[0])/2,0))
@@ -313,8 +346,33 @@ class GameState:
 
         if 'Planning' in self.current_state:
             self.bg_plan_screen.draw(surf)
+        
+        if 'Select Player Order' in self.current_state:
+            panel_width = 400
+            x = (surf.get_width()-panel_width)/2
+            y = 200
+            title_font_size = self.title_font.size('P2')
+            buffer = title_font_size[1]/2
+            height = title_font_size[1]*2+3*buffer
+            pygame.draw.rect(surf, nord1, pygame.Rect(x-buffer,y-buffer,panel_width+2*buffer,height))
+            panel_title = f'Player {self.firstplayer}, select who goes first:'
+            panel_title_render = self.title_font.render(panel_title, True, snow0)
+            surf.blit(panel_title_render,(x,y))
+            y = y + title_font_size[1] + buffer
+
+            p1_button_render = self.title_font.render('P1', True, snow1)
+            p1_button_loc = (x,y)
+            self.p1_button = p1_button_render.get_rect()
+            self.p1_button.topleft = p1_button_loc
+            surf.blit(p1_button_render,p1_button_loc)
+
+            p2_button_render = self.title_font.render('P2', True, snow1)
+            p2_button_loc = (x+panel_width-title_font_size[0],y)
+            self.p2_button = p2_button_render.get_rect()
+            self.p2_button.topleft = p2_button_loc
+            surf.blit(p2_button_render,p2_button_loc)
     
-    def next_phase(self):
+    def next_phase(self, next_player=None):
         # print('changing phase')
         if self.current_state == 'Setup':
             # print('movement phase')
@@ -324,8 +382,27 @@ class GameState:
             self.bg_plan_screen.bgs = self.p2_battlegroups
             self.current_state = 'Planning (P2)'
         elif self.current_state == 'Planning (P2)':
-            self.current_state = 'Movement'
+            self.current_state = f'Turn {self.turn}: Select Player Order'
+            index = self.turn-1
+            p1_sr = self.p1_battlegroups[index].sr
+            self.p1_battlegroups[index].state = 'active'
+            p2_sr = self.p2_battlegroups[index].sr
+            self.p2_battlegroups[index].state = 'active'
+            if p1_sr == p2_sr:
+                self.firstplayer = random.choice([1,2])
+            elif p1_sr < p2_sr:
+                self.firstplayer = 1
+            else:
+                self.firstplayer = 2
+        elif 'Select Player Order' in self.current_state:
+            self.current_state = f'Turn {self.turn}: P{next_player} Activate Battlegroup'
+            if next_player == 1:
+                self.p2_battlegroups[self.turn-1].state = 'pending active'
+        return self.current_state
         # print(f'now on phase {self.current_state}')
+    
+    def ship_selectable(self):
+        return self.current_state == 'Setup' or 'Activate' in self.current_state
 
 pygame.init()
 DISPLAYSURF = pygame.display.set_mode((1600,900), pygame.RESIZABLE)# | pygame.OPENGLBLIT)
@@ -357,7 +434,7 @@ title_font = pygame.font.Font('kooten.ttf', 24)
 major_font = pygame.font.Font('kooten.ttf', 18)
 minor_font = pygame.font.Font('kooten.ttf', 14)
 
-gamecontroller = GameState(title_font, major_font, minor_font)
+gamecontroller = GameController(title_font, major_font, minor_font)
 ui.append(gamecontroller)
 
 combatlog = CombatLog(major_font)
@@ -390,6 +467,8 @@ for fleetlist, lines in fleetfiles:
                 vals.pop(3)
             # print(vals[2])
             currentBG.groups.append([Ship(playarea,shipclass=vals[2]) for i in range(int(vals[0]))])
+p1_fleetpanel.battlegroups_originalorder = [bg for bg in p1_fleetpanel.battlegroups]
+p2_fleetpanel.battlegroups_originalorder = [bg for bg in p2_fleetpanel.battlegroups]
 # for bg in p1fleetlist:
 #     print(bg)
 # currentBG.state = 'active'
@@ -434,9 +513,26 @@ while True:
                     # print('next phase')
                     gamecontroller.next_phase()
                     break
+                if 'Planning' in gamecontroller.current_state:
+                    bg_list = gamecontroller.bg_plan_screen.bgs
+                    # print(f'at event listener {bg_list}')
+                    for index, bg in enumerate(bg_list):
+                        # print(bg.up_arrow_rect)
+                        if bg.up_arrow_rect and bg.up_arrow_rect.collidepoint(event.pos) and index > 0:
+                            bg_list[index-1], bg_list[index] = bg_list[index], bg_list[index-1]
+                            break
+                        if bg.down_arrow_rect and bg.down_arrow_rect.collidepoint(event.pos) and index < len(bg_list)-2:
+                            bg_list[index], bg_list[index+1] = bg_list[index+1], bg_list[index]
+                            break
+                if 'Select Player Order' in gamecontroller.current_state:
+                    if gamecontroller.p1_button.collidepoint(event.pos):
+                        gamecontroller.next_phase(next_player=1)
+                    elif gamecontroller.p2_button.collidepoint(event.pos):
+                        gamecontroller.next_phase(next_player=2)
+                    break
                 for ship in ships:
                     if ship.rect.collidepoint(event.pos):
-                        if gamecontroller.current_state in ['Movement','Setup']:
+                        if gamecontroller.ship_selectable():
                             if ship != selectedship:
                                 selectedship = ship
                                 draggables.remove(ship)
@@ -502,7 +598,7 @@ while True:
 
                 selectedship.selection_bearing = selectedship.bearing
 
-            if gamecontroller.current_state == 'Movement' and selectedship:
+            if 'Activate' in gamecontroller.current_state and selectedship:
                 center = (selectoffset_x + event.pos[0], selectoffset_y + event.pos[1])
                 selectedship.selection_loc = playarea.pixeltogrid(center) #grid location of ship when selected
                 center = playarea.gridtopixel(selectedship.selection_loc)
@@ -584,7 +680,7 @@ while True:
             ship.hover = False
 
     # for ship in ships:
-    if gamecontroller.current_state == 'Movement' and selectedship:
+    if 'Activate' in gamecontroller.current_state and selectedship:
         # selectedship.update_loc(playarea)
         pygame.draw.rect(DISPLAYSURF, frost1, selectedship.rect,1)
 

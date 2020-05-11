@@ -3,6 +3,7 @@ import csv
 from enum import Enum, auto
 from guns import *
 import copy
+import json
 
 class Ship(pygame.sprite.Sprite):
     shipDB = dict()
@@ -51,6 +52,29 @@ class Ship(pygame.sprite.Sprite):
 
     @staticmethod
     def load_shipDB():
+        shipfile = open('ships.json')
+        shipreader = json.load(shipfile)
+        for row in shipreader:
+            shipclass = row['shipclass']
+            row.pop('shipclass')
+            Ship.shipDB[shipclass] = row
+        
+        shipgunsfile = open('shipguns.json')
+        shipgunreader = json.load(shipgunsfile)
+        for row in shipgunreader:
+            shipclass = row['shipclass']
+            row.pop('shipclass')
+            weapons = row['weapons']
+            if weapons:
+                Ship.shipgunsDB[shipclass] = weapons
+            launches = row['launch']
+            if launches:
+                Ship.shiplaunchDB[shipclass] = launches
+        print(Ship.shipgunsDB)
+        print(Ship.shiplaunchDB)
+
+    @staticmethod
+    def load_shipDB_csv():
         shipfile = open('ships.csv')
         shipreader = csv.reader(shipfile)
         for row in shipreader:
@@ -63,12 +87,17 @@ class Ship(pygame.sprite.Sprite):
 
         shipgunsfile = open('shipguns.csv')
         shipgunreader = csv.reader(shipgunsfile)
+        print('[')
         for row in shipgunreader:
             # print(row)
             shipclass = row.pop(0)
+            print('{\"shipname\":\"'+shipclass+'\",')
             shipguns = []
             shiplaunch = []
+            temp_shipguns = []
+            temp_shiplaunch = []
             while len(row) > 0 and row[0] != '':
+                temp = {}
                 # print(row)
                 guntype = row.pop(0)
                 # print(f'gun type {guntype}')
@@ -76,25 +105,35 @@ class Ship(pygame.sprite.Sprite):
                     launchtype = row.pop(0)
                     launchnumber = row.pop(0)
                     shiplaunch.append([launchtype,launchnumber])
+                    temp_shiplaunch.append({'launchtype':launchtype,'count':launchnumber})
                     # print(f'adding launch asset {launchnumber} {launchtype}')
                     continue
                 gunarc = row.pop(0)
                 if 'count' in gunarc:
                     count = gunarc[-1]
                     gunarc = row.pop(0)
+                    temp['count'] = count
                 else:
                     count = 1
                 if 'Linked' in gunarc:
                     # print('linked gun')
                     linking = gunarc[-1]
                     gunarc = row.pop(0)
+                    temp['linking'] = linking
                 else:
                     linking = 0
                     # print(f'adding weapon {guntype}, firing {gunarc}, linked-{linking}')
                 shipguns.append(Weapon(guntype,gunarc,linked=linking,count=count))
+                temp['guntype'] = guntype
+                temp['arc'] = gunarc
+                temp_shipguns.append(temp)
                 # print(f'adding weapon {guntype}, firing {gunarc}')
+            print('\"weapons\":'+str(temp_shipguns)+',')
+            print('\"launch\":'+str(temp_shiplaunch))
+            print('},')
             Ship.shipgunsDB.update({shipclass:shipguns})
             Ship.shiplaunchDB.update({shipclass:shiplaunch})
+        print(']')
     
     def zoom(self, zoom_increment):
         self.rect.center = self.playarea.gridtopixel(self.loc)
@@ -126,3 +165,6 @@ class ShipOrder(Enum):
     MAXTHRUST = auto()
     SILENTRUNNING = auto()
     ACTIVESCAN = auto()
+
+if __name__ == "__main__":
+    Ship.load_shipDB()

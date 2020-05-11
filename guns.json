@@ -1,0 +1,140 @@
+[
+  {
+    "guntype": "Twin Supernova Laser",
+    "lock": "3",
+    "attack": "2",
+    "damage": "1"
+  },
+  {
+    "guntype": "Wasp Drones",
+    "lock": "3",
+    "attack": "d3+1",
+    "damage": "1"
+  },
+  {
+    "guntype": "UF-4200 Mass Driver Turret",
+    "lock": "4",
+    "attack": "2",
+    "damage": "1"
+  },
+  {
+    "guntype": "UF-6400 Mass Driver Turret",
+    "lock": "3",
+    "attack": "2",
+    "damage": "1"
+  },
+  {
+    "guntype": "Cobra Heavy Laser",
+    "lock": "3",
+    "attack": "2",
+    "damage": "1"
+  },
+  {
+    "guntype": "Swordfish Missile Bays",
+    "lock": "3",
+    "attack": "d6+4",
+    "damage": "1"
+  },
+  {
+    "guntype": "Shark Missile Bays",
+    "lock": "4",
+    "attack": "d6+1",
+    "damage": "1"
+  },
+  {
+    "guntype": "UF-B-8000 Bombardment Turret",
+    "lock": "2",
+    "attack": "1",
+    "damage": "1"
+  },
+  {
+    "guntype": "Mosquito Drones",
+    "lock": "4",
+    "attack": "2",
+    "damage": "1"
+  },
+  {
+    "guntype": "Supernova Laser",
+    "lock": "3",
+    "attack": "1",
+    "damage": "1"
+  },
+  {
+    "guntype": "Light Calibre Broadside",
+    "lock": "5",
+    "attack": "12",
+    "damage": "1"
+  },
+  {
+    "guntype": "Wasp Drones",
+    "lock": "3",
+    "attack": "D3+1",
+    "damage": "1"
+  },
+  {
+    "guntype": "Bombardment Turret",
+    "lock": "4",
+    "attack": "2",
+    "damage": "1"
+  },
+  {
+    "guntype": "Medium Calibre Broadside",
+    "lock": "4",
+    "attack": "8",
+    "damage": "1"
+  },
+  {
+    "guntype": "Medium Calibre Turret",
+    "lock": "4",
+    "attack": "2",
+    "damage": "1"
+  },
+  {
+    "guntype": "Medium Calibre Bank",
+    "lock": "4",
+    "attack": "3",
+    "damage": "1"
+  },
+  {
+    "guntype": "Vespa Drones",
+    "lock": "4",
+    "attack": "3",
+    "damage": "1"
+  },
+  {
+    "guntype": "Light Calibre Battery",
+    "lock": "5",
+    "attack": "6",
+    "damage": "1"
+  },
+  {
+    "guntype": "Medium Calibre Battery",
+    "lock": "4",
+    "attack": "4",
+    "damage": "1"
+  },
+  {
+    "guntype": "UF-2200 Mass Driver Turret",
+    "lock": "4",
+    "attack": "1",
+    "damage": "1"
+  },
+  {
+    "guntype": "Barracuda Missile Bays",
+    "lock": "4",
+    "attack": "2",
+    "damage": "1"
+  },
+  {
+    "guntype": "Piranha Missile Turrets",
+    "lock": "4",
+    "attack": "d6+4",
+    "damage": "1"
+  },
+  {
+    "guntype": "Stingray Missile Bays",
+    "lock": "4",
+    "attack": "3",
+    "damage": "1"
+  }
+]
