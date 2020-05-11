@@ -172,12 +172,13 @@ class FleetPanel:
                     hp_start = ship_box.left+buffer
                     hp_end = ship_box.left+buffer+hull_bar_length*ship.hp/ship.hull
                     hull_end = hp_start+hull_bar_length
-                    pygame.draw.line(self.surf,aurora3,(hp_start,y),(hp_end,y))
-                    pygame.draw.line(self.surf,aurora0,(hp_end,y),(hull_end,y))
+                    pygame.draw.line(self.surf,aurora3,(hp_start,y),(hp_end,y),4)
+                    if hp_end < hull_end:
+                        pygame.draw.line(self.surf,aurora0,(hp_end,y),(hull_end,y),4)
 
                     y = y + 2*buffer                    
                 y = y + buffer
-            if bg.state == 'active':
+            if bg.state == 'active' or bg.hovered:
                 pygame.draw.rect(self.surf, frost0, pygame.Rect(.5*buffer, bg_top-.5*buffer, self.width-buffer, y-bg_top-.5*buffer), 2)
         self.content_height = y
         # surf.blit(self.surf,(0,0))
@@ -236,6 +237,7 @@ class Battlegroup:
         self.points = points
         self.groups = []
         self.state = 'not yet active'
+        self.hovered = False
 
     def __str__(self):
         out_str = f'SR{self.sr} {self.size} {self.points} pts'
@@ -243,18 +245,56 @@ class Battlegroup:
         #     out_str += f'\n{len(group)} {group[0].shipclass}'
         return out_str
     
+    def printships(self):
+        out_str = ''
+        for group in self.groups:
+            out_str = out_str + f'{len(group)} {group[0].shipclass}, '
+        out_str = out_str[:-2]
+        return out_str
+    
 class ShipGroup:
     def __init__(self):
         pass
 
+class BattlegroupPlanner:
+    def __init__(self, battlegroups, major_font, minor_font):
+        self.bgs = battlegroups
+        self.width = 300
+        self.rect = pygame.Rect(0,0,0,0)
+        self.major_font = major_font
+        self.minor_font = minor_font
+    
+    def draw(self, surf):
+        x = (surf.get_width()-self.width)/2
+        y = 200
+        major_font_height = self.major_font.size('')[1]
+        minor_font_height = self.minor_font.size('')[1]
+        buffer = major_font_height/2
+        height = len(self.bgs)*2*major_font_height+2*buffer
+        pygame.draw.rect(surf,nord1,pygame.Rect(x-buffer,y-buffer,self.width+2*buffer,height))
+        for bg in self.bgs:
+            bg_y = y
+            mousepos = pygame.mouse.get_pos()
+            bg_render = self.major_font.render(str(bg), True, snow0)
+            # pygame.draw.rect()
+            surf.blit(bg_render, (x,y))
+            y = y + major_font_height
+            bg_ships_render = self.minor_font.render(bg.printships(), True, frost0)
+            surf.blit(bg_ships_render, (x,y))
+            y = y + major_font_height
+            select_box = pygame.Rect(x,bg_y,self.width,y-bg_y)
+            bg.hovered = select_box.collidepoint(mousepos)
+
 class GameState:
-    def __init__(self, title_font, major_font):
+    def __init__(self, title_font, major_font, minor_font):
         self.current_state = 'Setup'
         self.title_font = title_font
         self.rect = pygame.Rect(0,0,0,0)
         self.major_font = major_font
+        self.minor_font = minor_font
         self.p1_battlegroups = []
         self.p2_battlegroups = []
+        self.bg_plan_screen = None
     
     def draw(self, surf):
         state_text = f'{self.current_state} Phase'
@@ -270,11 +310,20 @@ class GameState:
         self.rect.size = endturnbutton_render_width
         pygame.draw.rect(surf, nord3, self.rect)
         surf.blit(endturnbutton_render, (self.rect.left,self.rect.top))
+
+        if 'Planning' in self.current_state:
+            self.bg_plan_screen.draw(surf)
     
     def next_phase(self):
         # print('changing phase')
         if self.current_state == 'Setup':
             # print('movement phase')
+            self.current_state = 'Planning (P1)'
+            self.bg_plan_screen = BattlegroupPlanner(self.p1_battlegroups, self.major_font, self.minor_font)
+        elif self.current_state == 'Planning (P1)':
+            self.bg_plan_screen.bgs = self.p2_battlegroups
+            self.current_state = 'Planning (P2)'
+        elif self.current_state == 'Planning (P2)':
             self.current_state = 'Movement'
         # print(f'now on phase {self.current_state}')
 
@@ -308,7 +357,7 @@ title_font = pygame.font.Font('kooten.ttf', 24)
 major_font = pygame.font.Font('kooten.ttf', 18)
 minor_font = pygame.font.Font('kooten.ttf', 14)
 
-gamecontroller = GameState(title_font, major_font)
+gamecontroller = GameState(title_font, major_font, minor_font)
 ui.append(gamecontroller)
 
 combatlog = CombatLog(major_font)
