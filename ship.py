@@ -24,16 +24,22 @@ class Ship(pygame.sprite.Sprite):
         self.hp = self.hull
         self.armor = Ship.shipDB[shipclass]['armor']
         self.pd = Ship.shipDB[shipclass]['pd']
-        self.shiptype = Ship.shipDB[shipclass]['type']
+        self.shiptype = Ship.shipDB[shipclass]['shiptype']
         self.guns = []
         for gun in Ship.shipgunsDB[self.shipclass]:
-            self.guns.append(copy.copy(gun))
+            gun_obj = Weapon(gun['guntype'], gun['arc'])
+            if 'linked' in gun:
+                gun_obj.linked = gun['linked']
+            if 'count' in gun:
+                gun_obj.count = gun['count']
+            self.guns.append(gun_obj)
 
         self.image0 = pygame.image.load('blueship.png').convert_alpha()
         self.scale = .05
         self.bearing = 0
         self.image = pygame.transform.rotozoom(self.image0, self.bearing, self.scale)
         self.rect = self.image.get_rect()
+        self.panel_rect = pygame.Rect(0,0,0,0)
         self.playarea = playarea
         self.loc = loc
         self.rect.center = playarea.gridtopixel(loc)

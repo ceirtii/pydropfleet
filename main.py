@@ -158,8 +158,13 @@ class FleetPanel:
                     font_render = self.line_font.render(f'{ship.faction} {ship.name}',True,snow1)
                     class_render = self.minor_font.render(f'{ship.shipclass}-class {ship.shiptype}',True,snow2)
                     box_height = line_height+2*minor_height+buffer
-                    ship_box = pygame.Rect(1.5*buffer, y-buffer/2, self.width-3*buffer, box_height)
-                    pygame.draw.rect(self.surf, nord2, ship_box)
+                    
+                    ship.panel_rect.left = 1.5*buffer
+                    ship.panel_rect.top = y-buffer/2
+                    ship.panel_rect.width = self.width-3*buffer
+                    ship.panel_rect.height = box_height
+
+                    pygame.draw.rect(self.surf, nord2, ship.panel_rect)
 
                     hull_string = f'{ship.hp}/{ship.hull}'
                     hull_string_width = self.line_font.size(hull_string)[0]
@@ -167,19 +172,22 @@ class FleetPanel:
                     self.surf.blit(hull_render, (self.rect.width-2*buffer-hull_string_width, y))
 
                     if ship.hover:
-                        pygame.draw.rect(self.surf, frost0, ship_box, 2)
+                        pygame.draw.rect(self.surf, frost0, ship.panel_rect, 2)
                     self.surf.blit(font_render, (2 * buffer, y))
                     y = y + line_height
                     self.surf.blit(class_render, (2 * buffer, y))
                     y = y + minor_height + buffer
 
-                    hull_bar_length = ship_box.width-2*buffer
-                    hp_start = ship_box.left+buffer
-                    hp_end = ship_box.left+buffer+hull_bar_length*ship.hp/ship.hull
+                    hull_bar_length = ship.panel_rect.width-2*buffer
+                    hp_start = ship.panel_rect.left+buffer
+                    hp_end = ship.panel_rect.left+buffer+hull_bar_length*ship.hp/ship.hull
                     hull_end = hp_start+hull_bar_length
                     pygame.draw.line(self.surf,aurora3,(hp_start,y),(hp_end,y),4)
+                    
                     if hp_end < hull_end:
                         pygame.draw.line(self.surf,aurora0,(hp_end,y),(hull_end,y),4)
+
+                    ship.panel_rect.left = 1.5*buffer + self.rect.left
 
                     y = y + 2*buffer                    
                 y = y + buffer
@@ -398,6 +406,8 @@ class GameController:
             self.current_state = f'Turn {self.turn}: P{next_player} Activate Battlegroup'
             if next_player == 1:
                 self.p2_battlegroups[self.turn-1].state = 'pending active'
+            else:
+                self.p1_battlegroups[self.turn-1].state = 'pending active'
         return self.current_state
         # print(f'now on phase {self.current_state}')
     
@@ -466,7 +476,14 @@ for fleetlist, lines in fleetfiles:
                 vals[2] = f'{vals[2]} {vals[3]}'
                 vals.pop(3)
             # print(vals[2])
-            currentBG.groups.append([Ship(playarea,shipclass=vals[2]) for i in range(int(vals[0]))])
+            group = []
+            for i in range(int(vals[0])):
+                newship = Ship(playarea,shipclass=vals[2])
+                draggables.append(newship)
+                sprites.add(newship)
+                ships.add(newship)
+                group.append(newship)
+            currentBG.groups.append(group)
 p1_fleetpanel.battlegroups_originalorder = [bg for bg in p1_fleetpanel.battlegroups]
 p2_fleetpanel.battlegroups_originalorder = [bg for bg in p2_fleetpanel.battlegroups]
 # for bg in p1fleetlist:
@@ -479,18 +496,20 @@ p2_fleetfile.close()
 gamecontroller.p1_battlegroups = p1_fleetpanel.battlegroups
 gamecontroller.p2_battlegroups = p2_fleetpanel.battlegroups
 
-for bg in p1_fleetpanel.battlegroups + p2_fleetpanel.battlegroups:
-    for group in bg.groups:
-        for ship1 in group:
-            draggables.append(ship1)
-            sprites.add(ship1)
-            ships.add(ship1)
+# for bg in p1_fleetpanel.battlegroups + p2_fleetpanel.battlegroups:
+#     for group in bg.groups:
+#         for ship1 in group:
+#             draggables.append(ship1)
+#             sprites.add(ship1)
+#             ships.add(ship1)
 
 selectedship = None
 
 dragging = False
 
-
+print(ships)
+for ship in ships:
+    print(ship)
 
 while True:
 
@@ -521,7 +540,7 @@ while True:
                         if bg.up_arrow_rect and bg.up_arrow_rect.collidepoint(event.pos) and index > 0:
                             bg_list[index-1], bg_list[index] = bg_list[index], bg_list[index-1]
                             break
-                        if bg.down_arrow_rect and bg.down_arrow_rect.collidepoint(event.pos) and index < len(bg_list)-2:
+                        if bg.down_arrow_rect and bg.down_arrow_rect.collidepoint(event.pos) and index < len(bg_list)-1:
                             bg_list[index], bg_list[index+1] = bg_list[index+1], bg_list[index]
                             break
                 if 'Select Player Order' in gamecontroller.current_state:
@@ -668,16 +687,17 @@ while True:
     sprites.draw(DISPLAYSURF)
                     
     infopanel.selectedship = None
+    mousepos = pygame.mouse.get_pos()
+    infopanel.selectedship = None
     for ship in ships:
-        shiphovered = False
-        if ship.rect.collidepoint(pygame.mouse.get_pos()) and not shiphovered:
-            ship.hover = True
-            pygame.draw.rect(DISPLAYSURF, frost1, ship.rect, 1)
-            if not infopanel.selectedship:
+        # pygame.draw.rect(DISPLAYSURF, frost1, ship.panel_rect)
+        ship.hover = False
+        if not infopanel.selectedship:
+            if ship.rect.collidepoint(mousepos) or ship.panel_rect.collidepoint(mousepos):
+                ship.hover = True
+                pygame.draw.rect(DISPLAYSURF, frost1, ship.rect, 1)
                 infopanel.selectedship = ship
-            shiphovered = True
-        else:
-            ship.hover = False
+                # print(f'ship hovered: {ship}')
 
     # for ship in ships:
     if 'Activate' in gamecontroller.current_state and selectedship:
