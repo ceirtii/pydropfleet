@@ -255,6 +255,10 @@ while True:
     # infopanel.selectedship = None
     mousepos = pygame.mouse.get_pos()
     infopanel.selectedship = hoveredship
+    if infopanel.hovered_gun:
+        infopanel.hovered_gun.draw(DISPLAYSURF, playarea)
+        if infopanel.hovered_gun.linked > 0:
+            infopanel.hovered_gun.linked_gun.draw(DISPLAYSURF, playarea, linked=True)
     for ship in ships:
         # pygame.draw.rect(DISPLAYSURF, frost1, ship.panel_rect)
         ship.hover = False

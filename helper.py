@@ -2,7 +2,7 @@
 import pygame.gfxdraw
 import math
 
-class NordColors():
+class NordColors:
     nord0 = (46,52,64)
     nord1 = (59,66,82)
     nord2 = (67,76,94)

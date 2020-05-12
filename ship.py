@@ -26,11 +26,22 @@ class Ship(pygame.sprite.Sprite):
         self.pd = Ship.shipDB[shipclass]['pd']
         self.shiptype = Ship.shipDB[shipclass]['shiptype']
         self.guns = []
+        self.linked_guns = dict()
         for gun in Ship.shipgunsDB[self.shipclass]:
             # print(gun)
             gun_obj = Weapon(self, gun['guntype'], gun['arc'])
             if 'linking' in gun:
-                gun_obj.linked = gun['linking']
+                link_index = int(gun['linking'])
+                if link_index in self.linked_guns:
+                    for linked_gun in self.linked_guns[link_index]:
+                        linked_gun.linked_gun = gun_obj
+                        gun_obj.linked_gun = linked_gun
+                    self.linked_guns[link_index].append(gun_obj)
+                else:
+                    self.linked_guns[link_index] = [gun_obj]
+                    # print(f'linking {gun_obj.linked_gun}')
+                    # print(f'with {linking_guns[link_index].linked_gun}')
+                gun_obj.linked = link_index
                 # print('linked guns')
             if 'count' in gun:
                 gun_obj.count = gun['count']

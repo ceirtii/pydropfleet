@@ -1,6 +1,8 @@
 import pygame
 from pygame.locals import *
 from helper import *
+from ship import *
+import random
 
 class PlayArea(pygame.sprite.Sprite):
     def __init__(self):
@@ -198,8 +200,10 @@ class InfoPanel:
         self.buffer = 10
         self.line_font = major_font
         self.minor_font = minor_font
+        self.hovered_gun = None
 
     def draw(self, surf):
+        self.hovered_gun = None
         self.rect = pygame.Rect(surf.get_width()/2,surf.get_height()*(1-self.height_frac),surf.get_width()*self.width_frac,surf.get_height()*self.height_frac)
         pygame.draw.rect(surf, self.color, self.rect)
         
@@ -220,7 +224,14 @@ class InfoPanel:
             y = y + line_height
             for gun in self.selectedship.guns:
                 gun_render = self.minor_font.render(str(gun), True, NordColors.frost0)
-                surf.blit(gun_render, (self.rect.left+self.buffer,y))
+                gunpos = (self.rect.left+self.buffer,y)
+                gun.rect = gun_render.get_rect()
+                gun.rect.topleft = gunpos
+                surf.blit(gun_render, gunpos)
+                if gun.rect.collidepoint(pygame.mouse.get_pos()):
+                    self.hovered_gun = gun
+                    pygame.draw.rect(surf, NordColors.frost1, gun.rect, 1)
+                    # print(f'{gun.guntype} hovered')
                 y = y + minor_height
 
     def scroll(self, dir):
