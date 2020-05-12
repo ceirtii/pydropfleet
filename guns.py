@@ -37,7 +37,11 @@ class Weapon:
             Weapon.gunDB.update({guntype:gunstats})
         
     def __str__(self):
-        return f'{self.guntype} lock: {self.lock}, attack: {self.attack}, damage: {self.damage}'
+        out_str = f'{self.guntype}'
+        if self.linked != 0:
+            out_str = out_str + f'({self.linked})'
+        out_str = out_str + f' lock:{self.lock}, att:{self.attack}, dam:{self.damage} arc:{self.arc}'
+        return out_str
     
     def to_dict(self):
         out = {'guntype':self.guntype, 'arc':self.arc, 'linked':self.linked, 'count':self.count}

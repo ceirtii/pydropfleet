@@ -27,9 +27,11 @@ class Ship(pygame.sprite.Sprite):
         self.shiptype = Ship.shipDB[shipclass]['shiptype']
         self.guns = []
         for gun in Ship.shipgunsDB[self.shipclass]:
+            # print(gun)
             gun_obj = Weapon(gun['guntype'], gun['arc'])
-            if 'linked' in gun:
-                gun_obj.linked = gun['linked']
+            if 'linking' in gun:
+                gun_obj.linked = gun['linking']
+                # print('linked guns')
             if 'count' in gun:
                 gun_obj.count = gun['count']
             self.guns.append(gun_obj)
@@ -55,6 +57,8 @@ class Ship(pygame.sprite.Sprite):
         self.minthrust = self.thrust/2
         self.maxthrust = self.thrust
         self.hover = False
+        self.state = ShipState.SETUP
+        self.group = None
 
     @staticmethod
     def load_shipDB():
@@ -76,8 +80,8 @@ class Ship(pygame.sprite.Sprite):
             launches = row['launch']
             if launches:
                 Ship.shiplaunchDB[shipclass] = launches
-        print(Ship.shipgunsDB)
-        print(Ship.shiplaunchDB)
+        # print(Ship.shipgunsDB)
+        # print(Ship.shiplaunchDB)
 
     @staticmethod
     def load_shipDB_csv():
@@ -171,6 +175,14 @@ class ShipOrder(Enum):
     MAXTHRUST = auto()
     SILENTRUNNING = auto()
     ACTIVESCAN = auto()
+
+class ShipState(Enum):
+    SETUP = auto()
+    MOVING = auto()
+    FIRING = auto()
+    ACTIVATED = auto()
+    NOT_YET_ACTIVATED = auto()
+    DESTROYED = auto()
 
 if __name__ == "__main__":
     Ship.load_shipDB()
