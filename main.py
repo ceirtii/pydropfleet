@@ -3,7 +3,7 @@ import pygame, sys, math
 from pygame.locals import *
 from ship import *
 from guns import *
-# from queue import Queue
+from queue import Queue
 import random
 
 nord0 = (46,52,64)
@@ -524,12 +524,17 @@ gamecontroller.p2_battlegroups = p2_fleetpanel.battlegroups
 selectedship = None
 show_cohesion = False
 dragging = False
+targeting_ship = None
+firing_queue = Queue()
 
 while True:
 
     pygame.draw.rect(DISPLAYSURF,(0,0,0),pygame.Rect(0,0,DISPLAYSURF.get_width(),DISPLAYSURF.get_height()))
     # DISPLAYSURF.fill((0,0,0))
 
+    # -----------------------------------------------------------------------------------
+    # GET USER INPUT
+    # -----------------------------------------------------------------------------------
     for event in pygame.event.get():
         if event.type == QUIT:
             pygame.quit()
@@ -540,7 +545,7 @@ while True:
 
         elif event.type == MOUSEBUTTONDOWN:
             if event.button == 1:
-                if gamecontroller.rect.collidepoint(event.pos):
+                if gamecontroller.rect.collidepoint(event.pos) and 'Select Player Order' not in gamecontroller.current_state:
                     gamecontroller.next_phase()
                     break
 
@@ -574,7 +579,7 @@ while True:
                         if ship.rect.collidepoint(event.pos):
                             # print(ship.state)
                             if ship.state in [ShipState.SETUP, ShipState.ACTIVATED, ShipState.MOVING]:
-                                if ship != selectedship:
+                                if ship is not selectedship:
                                     selectedship = ship
                                     draggables.remove(ship)
                                     # pos0 = playarea.pixeltogrid(ship.rect.center)
@@ -592,13 +597,16 @@ while True:
                                     ship.selection_loc = None
                                     ship.bearing = ship.selection_bearing
                                     combatlog.log.append(f'{ship.name} moved to {ship.loc[0]:.1f}, {ship.loc[1]:.1f} bearing {ship.bearing:.3f}')
-                                    if ship.state == ShipState.MOVING:
+                                    if ship.state is ShipState.MOVING:
                                         ship.state = ShipState.FIRING
-                            elif ship.state == ShipState.FIRING:
-                                if gamecontroller.firingphase():
-                                    print('pew pew')
-                                else:
+                            elif ship.state is ShipState.FIRING:
+                                if not gamecontroller.firingphase():
                                     combatlog.log.append('cannot fire, not all ships have moved!')
+                                    break
+                                if ship is not selectedship:
+                                    selectedship = ship
+                                    break
+                                selectedship = None
                             break
 
 
@@ -638,7 +646,7 @@ while True:
                 dragging = False
 
         elif event.type == pygame.MOUSEMOTION:
-            if gamecontroller.current_state == 'Setup' and selectedship:
+            if selectedship and selectedship.state is ShipState.SETUP:
                 center = (selectoffset_x + event.pos[0], selectoffset_y + event.pos[1])
                 selectedship.selection_loc = playarea.pixeltogrid(center) #grid location of ship when selected
                 center = playarea.gridtopixel(selectedship.selection_loc)
@@ -649,7 +657,7 @@ while True:
 
                 selectedship.selection_bearing = selectedship.bearing
 
-            if 'Activate' in gamecontroller.current_state and selectedship:
+            if selectedship and selectedship.state is ShipState.MOVING:
                 center = (selectoffset_x + event.pos[0], selectoffset_y + event.pos[1])
                 selectedship.selection_loc = playarea.pixeltogrid(center) #grid location of ship when selected
                 center = playarea.gridtopixel(selectedship.selection_loc)
@@ -716,7 +724,10 @@ while True:
                         ship.hp = ship.hp - 1
             if event.key == pygame.K_c:
                 show_cohesion = not show_cohesion
-        
+
+    #-----------------------------------------------------------------------------------
+    # DRAW STUFF
+    #-----------------------------------------------------------------------------------
     # pygame.draw.rect(DISPLAYSURF,(255,255,255),rectangle)
     sprites.draw(DISPLAYSURF)
                     
@@ -739,7 +750,7 @@ while True:
                 # print(f'ship hovered: {ship}')
 
     # for ship in ships:
-    if 'Activate' in gamecontroller.current_state and selectedship:
+    if selectedship and selectedship.state is ShipState.MOVING:
         # selectedship.update_loc(playarea)
         pygame.draw.rect(DISPLAYSURF, frost1, selectedship.rect,1)
 
