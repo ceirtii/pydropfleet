@@ -1,7 +1,7 @@
 import pygame
 import csv
 from enum import Enum, auto
-from guns import *
+from guns import Weapon
 import copy
 import json
 
@@ -28,7 +28,7 @@ class Ship(pygame.sprite.Sprite):
         self.guns = []
         for gun in Ship.shipgunsDB[self.shipclass]:
             # print(gun)
-            gun_obj = Weapon(gun['guntype'], gun['arc'])
+            gun_obj = Weapon(self, gun['guntype'], gun['arc'])
             if 'linking' in gun:
                 gun_obj.linked = gun['linking']
                 # print('linked guns')

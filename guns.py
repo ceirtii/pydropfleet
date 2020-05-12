@@ -1,10 +1,11 @@
 import csv
 import json
+from helper import fill_arc, NordColors
 
 class Weapon:
     gunDB = dict()
 
-    def __init__(self, guntype, arc, linked=0, count=1):
+    def __init__(self, ship, guntype, arc, linked=0, count=1):
         self.guntype = guntype
         self.arc = arc
         self.linked = linked
@@ -14,6 +15,7 @@ class Weapon:
         self.count = count
         self.attack = Weapon.gunDB[guntype]['attack']
         self.damage = Weapon.gunDB[guntype]['damage']
+        self.ship = ship
 
     @staticmethod
     def load_gunDB():
@@ -46,6 +48,13 @@ class Weapon:
     def to_dict(self):
         out = {'guntype':self.guntype, 'arc':self.arc, 'linked':self.linked, 'count':self.count}
         return out
+    
+    def draw(self, surf):
+        color = NordColors.frost0
+        alpha = ([128],)
+        theta0 = 0
+        theta1 = 1
+        fill_arc(surf,self.ship.rect.center,self.ship.scan,theta0,theta1,color+alpha)
 
 class LaunchAsset():
     def __init__(self, faction, count):
