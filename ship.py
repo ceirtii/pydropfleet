@@ -4,6 +4,7 @@ from enum import Enum, auto
 from guns import Weapon
 import copy
 import json
+import random
 
 class Ship(pygame.sprite.Sprite):
     shipDB = dict()
@@ -11,7 +12,7 @@ class Ship(pygame.sprite.Sprite):
     shiplaunchDB = dict()
     ship_counter = 1
 
-    def __init__(self, playarea, shipclass, loc=(10.0,10.0), name=None):
+    def __init__(self, playarea, shipclass, loc=(-1,-1), name=None):
         pygame.sprite.Sprite.__init__(self)
         if not Ship.shipDB:
             Ship.load_shipDB()
@@ -27,6 +28,8 @@ class Ship(pygame.sprite.Sprite):
         self.shiptype = Ship.shipDB[shipclass]['shiptype']
         self.guns = []
         self.linked_guns = dict()
+        self.player = None
+        self.active_sig = self.sig
         for gun in Ship.shipgunsDB[self.shipclass]:
             # print(gun)
             gun_obj = Weapon(self, gun['guntype'], gun['arc'])
@@ -49,11 +52,15 @@ class Ship(pygame.sprite.Sprite):
 
         self.image0 = pygame.image.load('blueship.png').convert_alpha()
         self.scale = .05
-        self.bearing = 0
+        # if bearing == -1:
+        self.bearing = random.random()*360
+        # self.bearing = 0
         self.image = pygame.transform.rotozoom(self.image0, self.bearing, self.scale)
         self.rect = self.image.get_rect()
         self.panel_rect = pygame.Rect(0,0,0,0)
         self.playarea = playarea
+        if loc == (-1,-1):
+            loc = (random.random()*48,random.random()*48)
         self.loc = loc
         self.rect.center = playarea.gridtopixel(loc)
         self.is_selected = False
@@ -67,7 +74,7 @@ class Ship(pygame.sprite.Sprite):
         self.order = ShipOrder.STANDARD
         self.minthrust = self.thrust/2
         self.maxthrust = self.thrust
-        self.hover = False
+        self.highlight = False
         self.state = ShipState.SETUP
         self.group = None
 
@@ -177,6 +184,22 @@ class Ship(pygame.sprite.Sprite):
     def __str__(self):
         out_str = f'{self.shipclass}-class {self.faction} {self.name}'
         return out_str
+    
+    def update(self):
+        if self.state is ShipState.FIRING:
+            if self.order is ShipOrder.STANDARD:
+                for gun in self.guns:
+                    if not gun.active:
+                        if not gun.linked_gun or not gun.linked_gun.active:
+                            self.state = ShipState.ACTIVATED
+                            for gun1 in self.guns:
+                                gun1.active = False
+                            return
+                        else:
+                            for gun1 in self.guns:
+                                if gun1 is not gun.linked_gun:
+                                    gun1.active = False
+                            return
 
 class ShipOrder(Enum):
     STANDARD = auto()

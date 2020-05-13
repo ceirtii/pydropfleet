@@ -3,6 +3,8 @@ from pygame.locals import *
 from helper import *
 from ship import *
 import random
+from enum import Enum, auto
+from queue import Queue
 
 class PlayArea(pygame.sprite.Sprite):
     def __init__(self):
@@ -37,7 +39,7 @@ class PlayArea(pygame.sprite.Sprite):
         return (x, y)
     
     def scalegridtopixel(self, dist):
-        return dist/self.dim[0]*self.rect.width
+        return int(dist/self.dim[0]*self.rect.width)
 
 class CombatLog:
     def __init__(self, font_obj, width_frac=.3):
@@ -50,6 +52,7 @@ class CombatLog:
         self.font_color = NordColors.snow0
         self.currentline = 0
         self.width_frac = width_frac
+        self.needs_update = True
     
     def draw(self, surf):
         self.width = int(surf.get_width()*self.width_frac)
@@ -102,6 +105,7 @@ class FleetPanel:
         self.width_frac = width_frac
         self.surf = None
         self.content_height = 0
+        self.needs_update = True
         # self.buffer = 10
     
     def draw(self, surf):
@@ -152,7 +156,7 @@ class FleetPanel:
                     hull_render = self.line_font.render(hull_string, True, NordColors.snow1)
                     self.surf.blit(hull_render, (self.rect.width-2*buffer-hull_string_width, y))
 
-                    if ship.hover:
+                    if ship.highlight:
                         pygame.draw.rect(self.surf, NordColors.frost0, ship.panel_rect, 2)
                     self.surf.blit(font_render, (2 * buffer, y))
                     y = y + line_height
@@ -201,6 +205,9 @@ class InfoPanel:
         self.line_font = major_font
         self.minor_font = minor_font
         self.hovered_gun = None
+        self.selected_gun = None
+        self.needs_update = True
+        self.targetpanel = None
 
     def draw(self, surf):
         self.hovered_gun = None
@@ -223,12 +230,18 @@ class InfoPanel:
             surf.blit(shipname_render, (self.rect.left+self.buffer,y))
             y = y + line_height
             for gun in self.selectedship.guns:
-                gun_render = self.minor_font.render(str(gun), True, NordColors.frost0)
+                if gun.active:
+                    gun_text_color = NordColors.frost0
+                else:
+                    gun_text_color = NordColors.frost3
+                gun_render = self.minor_font.render(str(gun), True, gun_text_color)
                 gunpos = (self.rect.left+self.buffer,y)
                 gun.rect = gun_render.get_rect()
                 gun.rect.topleft = gunpos
                 surf.blit(gun_render, gunpos)
-                if gun.rect.collidepoint(pygame.mouse.get_pos()):
+                if gun is self.selected_gun:
+                    pygame.draw.rect(surf, NordColors.frost1, gun.rect, 1)
+                elif gun.rect.collidepoint(pygame.mouse.get_pos()):
                     self.hovered_gun = gun
                     pygame.draw.rect(surf, NordColors.frost1, gun.rect, 1)
                     # print(f'{gun.guntype} hovered')
@@ -272,6 +285,7 @@ class BattlegroupPlanner:
         self.rect = pygame.Rect(0,0,0,0)
         self.major_font = major_font
         self.minor_font = minor_font
+        self.needs_update = False
     
     def draw(self, surf):
         x = (surf.get_width()-self.width)/2
@@ -315,6 +329,10 @@ class BattlegroupPlanner:
             select_box = pygame.Rect(x,bg_y,self.width,y-bg_y)
             bg.hovered = select_box.collidepoint(mousepos)
 
+class PlayerPhase(Enum):
+    MOVING = auto()
+    FIRING = auto()
+
 class GameController:
     def __init__(self, title_font, major_font, minor_font):
         self.current_state = 'Setup'
@@ -324,6 +342,7 @@ class GameController:
         self.minor_font = minor_font
         self.p1_battlegroups = []
         self.p2_battlegroups = []
+        self.player_phase = None
         self.bg_plan_screen = None
         self.turn = 1
         self.firstplayer = 0
@@ -331,6 +350,8 @@ class GameController:
         self.p2_button = None
         self.active_bg = None
         self.combatlog = None
+        self.firing_queue = Queue()
+        # self.needs_update = True
         # self.activation_queue = Queue()
     
     def draw(self, surf):
@@ -413,7 +434,9 @@ class GameController:
                 self.active_bg = self.p2_battlegroups[self.turn-1]
             for group in self.active_bg.groups:
                 for ship in group:
-                    ship.state = ShipState.ACTIVATED
+                    ship.state = ShipState.MOVING
+                    for gun in ship.guns:
+                        gun.active = True
         return self.current_state
         # print(f'now on phase {self.current_state}')
     
@@ -426,3 +449,36 @@ class GameController:
                 if ship.state != ShipState.FIRING:
                     return False
         return True
+
+class TargetPanel:
+    def __init__(self, major_font):
+        self.rect = pygame.Rect(0,0,300,100)
+        self.active = False
+        self.major_font = major_font
+        self.target_list = []
+        self.target_rect_list = []
+        self.buffer = major_font.size('')[1]/2
+        self.gun = None
+        self.needs_update = False
+        self.gamecontroller = None
+
+    def draw(self, surf):
+        if not self.active:
+            return
+        self.rect.right = surf.get_width()*.8
+        self.rect.height = (len(self.target_list)+1)*self.buffer*2
+        self.rect.bottom = surf.get_height()*.8
+        pygame.draw.rect(surf, NordColors.nord1, self.rect)
+        y = self.rect.top + self.buffer
+        x = self.buffer + self.rect.left
+        self.target_rect_list = []
+        for target in self.target_list:
+            target_render = self.major_font.render(str(target), True, NordColors.snow0)
+            target_rect = target_render.get_rect()
+            target_rect.topleft = (x,y)
+            self.target_rect_list.append(target_rect)
+            surf.blit(target_render, (x,y))
+            y = y + self.buffer*2
+
+    def scroll(self, dir):
+        return

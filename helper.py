@@ -25,4 +25,5 @@ def fill_arc(surf, center, radius, theta0, theta1, color, ndiv=50):
     dtheta = (theta1-theta0)/ndiv
     angles = [theta0+i*dtheta for i in range(ndiv+1)]
     points = [(x0,y0)] + [(x0+radius*math.cos(theta),y0-radius*math.sin(theta)) for theta in angles]
+    # pygame.draw.polygon(surf, color, points)
     pygame.gfxdraw.filled_polygon(surf, points, color)
