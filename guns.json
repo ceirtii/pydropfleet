@@ -9,7 +9,8 @@
     "guntype": "Wasp Drones",
     "lock": "3",
     "attack": "d3+1",
-    "damage": "1"
+    "damage": "1",
+    "close_action": true
   },
   {
     "guntype": "UF-4200 Mass Driver Turret",
@@ -33,13 +34,15 @@
     "guntype": "Swordfish Missile Bays",
     "lock": "3",
     "attack": "d6+4",
-    "damage": "1"
+    "damage": "1",
+    "close_action": true
   },
   {
     "guntype": "Shark Missile Bays",
     "lock": "4",
     "attack": "d6+1",
-    "damage": "1"
+    "damage": "1",
+    "close_action": true
   },
   {
     "guntype": "UF-B-8000 Bombardment Turret",
@@ -51,7 +54,8 @@
     "guntype": "Mosquito Drones",
     "lock": "4",
     "attack": "2",
-    "damage": "1"
+    "damage": "1",
+    "close_action": true
   },
   {
     "guntype": "Supernova Laser",
@@ -69,7 +73,8 @@
     "guntype": "Wasp Drones",
     "lock": "3",
     "attack": "D3+1",
-    "damage": "1"
+    "damage": "1",
+    "close_action": true
   },
   {
     "guntype": "Bombardment Turret",
@@ -99,7 +104,8 @@
     "guntype": "Vespa Drones",
     "lock": "4",
     "attack": "3",
-    "damage": "1"
+    "damage": "1",
+    "close_action": true
   },
   {
     "guntype": "Light Calibre Battery",
@@ -123,18 +129,21 @@
     "guntype": "Barracuda Missile Bays",
     "lock": "4",
     "attack": "2",
-    "damage": "1"
+    "damage": "1",
+    "close_action": true
   },
   {
     "guntype": "Piranha Missile Turrets",
     "lock": "4",
     "attack": "d6+4",
-    "damage": "1"
+    "damage": "1",
+    "close_action": true
   },
   {
     "guntype": "Stingray Missile Bays",
     "lock": "4",
     "attack": "3",
-    "damage": "1"
+    "damage": "1",
+    "close_action": true
   }
 ]

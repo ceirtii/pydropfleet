@@ -158,6 +158,8 @@ class FleetPanel:
 
                     if ship.highlight:
                         pygame.draw.rect(self.surf, NordColors.frost0, ship.panel_rect, 2)
+                    elif ship.hover:
+                        pygame.draw.rect(self.surf, NordColors.frost2, ship.panel_rect, 2)
                     self.surf.blit(font_render, (2 * buffer, y))
                     y = y + line_height
                     self.surf.blit(class_render, (2 * buffer, y))
@@ -452,7 +454,7 @@ class GameController:
 
 class TargetPanel:
     def __init__(self, major_font):
-        self.rect = pygame.Rect(0,0,300,100)
+        self.rect = pygame.Rect(0,0,300,0)
         self.active = False
         self.major_font = major_font
         self.target_list = []
@@ -482,3 +484,47 @@ class TargetPanel:
 
     def scroll(self, dir):
         return
+
+class Player:
+    def __init__(self, number, playarea):
+        self.battlegroups = []
+        self.ships = []
+        self.number = number
+        self.playarea = playarea
+    
+    def load_fleet(self, file):
+        fleetfile_lines = file.readlines()
+        currentBG = None
+        # BG_sizemap = {'Pathfinder':1, 'Line':2, 'Vanguard':3, 'Flag':4}
+        for line in fleetfile_lines:
+            if line.startswith('SR'):
+                vals = line.split()
+                currentBG = Battlegroup(vals[0][2:], vals[1], vals[3][1:-4])
+                self.battlegroups.append(currentBG)
+            elif line[0].isdigit():
+                vals = line.split()
+                # print(vals)
+                if vals[2] == 'New':
+                    vals[2] = f'{vals[2]} {vals[3]}'
+                    vals.pop(3)
+                # print(vals[2])
+                group = []
+                for i in range(int(vals[0])):
+                    if self.number == 1:
+                        image = 'blueship.png'
+                    else:
+                        image = 'redship.png'
+                    newship = Ship(self.playarea,shipclass=vals[2], imagepath=image)
+                    newship.player = self
+                    newship.group = group
+                    self.ships.append(newship)
+                    # draggables.append(newship)
+                    # sprites.add(newship)
+                    # self.ships.append(newship)
+                    group.append(newship)
+                currentBG.groups.append(group)
+        return self.battlegroups
+
+class TargetQueue:
+    def __init__(self):
+        self.target_queue = []

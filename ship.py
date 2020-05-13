@@ -12,7 +12,7 @@ class Ship(pygame.sprite.Sprite):
     shiplaunchDB = dict()
     ship_counter = 1
 
-    def __init__(self, playarea, shipclass, loc=(-1,-1), name=None):
+    def __init__(self, playarea, shipclass, loc=(-1,-1), name=None, imagepath='blueship.png'):
         pygame.sprite.Sprite.__init__(self)
         if not Ship.shipDB:
             Ship.load_shipDB()
@@ -50,11 +50,10 @@ class Ship(pygame.sprite.Sprite):
                 gun_obj.count = gun['count']
             self.guns.append(gun_obj)
 
-        self.image0 = pygame.image.load('blueship.png').convert_alpha()
+        self.image0 = pygame.image.load(imagepath).convert_alpha()
         self.scale = .05
-        # if bearing == -1:
-        self.bearing = random.random()*360
-        # self.bearing = 0
+        # self.bearing = random.random()*360
+        self.bearing = 0
         self.image = pygame.transform.rotozoom(self.image0, self.bearing, self.scale)
         self.rect = self.image.get_rect()
         self.panel_rect = pygame.Rect(0,0,0,0)
@@ -77,6 +76,7 @@ class Ship(pygame.sprite.Sprite):
         self.highlight = False
         self.state = ShipState.SETUP
         self.group = None
+        self.hover = False
 
     @staticmethod
     def load_shipDB():
