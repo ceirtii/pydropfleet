@@ -186,20 +186,54 @@ class Ship(pygame.sprite.Sprite):
         return out_str
     
     def update(self):
+        if self.hp < 1 and self.state is not ShipState.DESTROYED:
+            self.state = ShipState.DESTROYED
+            self.loc = (-1000,-1000)
         if self.state is ShipState.FIRING:
+            print('checking if ship can fire guns')
+            no_target_available = True
             if self.order is ShipOrder.STANDARD:
                 for gun in self.guns:
+                    no_target_available = no_target_available and gun.targetable_ships == 0
                     if not gun.active:
+                        print('inactive gun found')
                         if not gun.linked_gun or not gun.linked_gun.active:
+                            print('linked gun also inactive')
                             self.state = ShipState.ACTIVATED
                             for gun1 in self.guns:
                                 gun1.active = False
-                            return
                         else:
                             for gun1 in self.guns:
                                 if gun1 is not gun.linked_gun:
+                                    print('found unlinked gun, setting inactive')
                                     gun1.active = False
-                            return
+                if no_target_available:
+                    self.state = ShipState.ACTIVATED
+                    for gun in self.guns:
+                        gun.active = False
+
+                # all guns not active
+    
+    def mitigate(self, hits, crits):
+        out = []
+        armor_rolls = [random.randint(1,6) for i in range(hits)]
+        armor_str = ', '.join(map(str,armor_rolls))
+        out.append(f'armor rolls: {armor_str}')
+        mitigated_hits = 0
+        if 'd' in str(self.armor):
+            pass
+        else:
+            armor = int(self.armor)
+        for roll in armor_rolls:
+            if hits == 0:
+                break
+            if roll >= armor:
+                mitigated_hits = mitigated_hits + 1
+                hits = hits - 1
+        out.append(f'damage mitigated: {mitigated_hits}')
+        self.hp = self.hp - hits - crits
+        out.append(f'damage dealt: {hits + crits}')
+        return out
 
 class ShipOrder(Enum):
     STANDARD = auto()

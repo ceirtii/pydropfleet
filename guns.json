@@ -72,7 +72,7 @@
   {
     "guntype": "Wasp Drones",
     "lock": "3",
-    "attack": "D3+1",
+    "attack": "d3+1",
     "damage": "1",
     "close_action": true
   },

@@ -51,7 +51,7 @@ class Weapon:
             self.close_action = Weapon.gunDB[guntype]['close_action']
         except KeyError:
             self.close_action = False
-        
+        self.targetable_ships = None        
 
     @staticmethod
     def load_gunDB():
@@ -124,58 +124,83 @@ class Weapon:
             x0, y0 = self.ship.loc
             x1, y1 = target.loc
             dist = math.sqrt(math.pow(x1-x0,2)+math.pow(y1-y0,2))
-            print(f'ship {target.name} at a distance {dist}')
+            # print(f'ship {target.name} at a distance {dist}')
             if self.close_action:
                 gun_range = self.ship.scan
             else:
                 gun_range = target.active_sig + self.ship.scan
-            print(f'gun range {gun_range}')
+            # print(f'gun range {gun_range}')
             if dist < gun_range:
                 angle = math.atan2(y0-y1,x1-x0)
                 if angle < 0:
                     angle = 2*math.pi + angle
-                # angle = angle % (2*math.pi)
-                
-                # if len(sectors) == 4:
-                #     out.append(target)
-                #     continue
-                print(f'angle: {angle}')
+                # print(f'angle: {angle}')
                 for theta0, theta1 in sectors:
                     check_angle = angle
                     # make sure theta values within math.atan2 range (-pi to pi)
-                    print(f't0={theta0}, t1={theta1}')
+                    # print(f't0={theta0}, t1={theta1}')
                     arc_length = abs(theta1 - theta0)
-                    print(f'arc length={math.degrees(arc_length)}')
+                    # print(f'arc length={math.degrees(arc_length)}')
                     if abs(math.degrees(arc_length) - 90) > 1 and abs(math.degrees(arc_length) - 22.5) > 1:
                         raise Exception
                     theta0 = theta0 % (2*math.pi)
                     theta1 = theta1 % (2*math.pi)
-                    print(f'mod 2pi: t0={theta0}, t1={theta1}')
-                    # if theta0 > math.pi:
-                    #     theta0 = -(2*math.pi - theta0)
-                    # elif theta0 < -1*math.pi:
-                    #     theta0 = -(2*math.pi + theta0)
-                    # if theta1 > math.pi:
-                    #     theta1 = -(2*math.pi - theta1)
-                    # elif theta1 < -1*math.pi:
-                    #     theta1 = -(2*math.pi + theta1)
+                    # print(f'mod 2pi: t0={theta0}, t1={theta1}')
                     if theta1 < theta0:
                         theta1 = theta1 + 2*math.pi
                         if check_angle < theta0:
                             check_angle = check_angle + 2*math.pi
-                            print(f'angle adjustment: angle={check_angle}')
-                        print(f'special case adjustment: t0={theta0}, t1={theta1}')
-                    print()
+                        #     print(f'angle adjustment: angle={check_angle}')
+                        # print(f'special case adjustment: t0={theta0}, t1={theta1}')
                     if check_angle > theta0 and check_angle < theta0 + arc_length:
-                        print('ship in firing arc')
+                        # print('ship in firing arc')
                         out.append(target)
                         break
-                    # different approach:
+        self.targetable_ships = len(out)
         return out
     
     def shoot(self, ship):
-        attack_rolls = [random.randint(1,6) for i in range(int(self.attack))]
-
+        result = []
+        result.append(f'{self.guntype} on {str(self.ship)} -> {str(ship)}')
+        if 'd' in self.attack.lower():
+            self.attack.strip('d')
+            dice_faces, addition = map(int,self.attack.split('+'))
+            attack_rolls = [random.randint(1,6) for i in range(random.randint(1,dice_faces)+addition)]
+        else:
+            attack_rolls = [random.randint(1,6) for i in range(int(self.attack))]
+        attack_str = ', '.join(map(str,attack_rolls))
+        result.append(f'attack rolls: {attack_str}')
+        # index = 0
+        # while index < len(attack_rolls):
+        #     if attack_rolls[index] < self.lock:
+        #         attack_rolls.pop(index)
+        #     else:
+        #         index = index + 1
+        # attack_str = ', '.join(map(str,attack_rolls))
+        # result.append(f'successful hits: {attack_str}')
+        hits = 0
+        crits = 0
+        if 'd' in str(self.lock).lower():
+            pass
+        else:
+            lock = int(self.lock)
+        if 'd' in str(self.damage).lower():
+            pass
+        else:
+            damage = int(self.damage)
+        for val in attack_rolls:
+            if val >= lock + 2:
+                crits = crits + damage
+            elif val >= lock:
+                hits = hits + damage
+        if hits > 0 or crits > 0:
+            result.append(f'normals hits: {hits}, crits {crits}')
+        else:
+            return result
+        ship_results = ship.mitigate(hits, crits)
+        for line in ship_results:
+            result.append(line)
+        return result
 
 class LaunchAsset():
     def __init__(self, faction, count):

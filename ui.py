@@ -53,10 +53,12 @@ class CombatLog:
         self.currentline = 0
         self.width_frac = width_frac
         self.needs_update = True
+        # self.surf = pygame.Surface((0,0))
     
     def draw(self, surf):
         self.width = int(surf.get_width()*self.width_frac)
         self.height = int(surf.get_height()*.2)
+        # self.surf = pygame.Surface((self.width, self.height))
         x = surf.get_width()/2-self.width
         y = surf.get_height()-self.height
         if not self.rect:
@@ -70,7 +72,7 @@ class CombatLog:
         printloglines.reverse()
         # line_font = pygame.font.Font('kooten.ttf', 20)
         line_height = self.line_font.size('')[1]
-        lines = int(self.height/line_height)
+        lines = int(self.height/line_height) - 1
         if lines < len(printloglines):
             printloglines = printloglines[self.currentline:lines+self.currentline]
         printloglines.reverse()
@@ -78,7 +80,7 @@ class CombatLog:
         line_pixel = 0
         for line in printloglines:
             line_font_surface = self.line_font.render(line,True,self.font_color)
-            surf.blit(line_font_surface,(self.rect.x, self.rect.y + line_pixel))
+            surf.blit(line_font_surface,(self.rect.x + line_height/2, self.rect.y + line_pixel + line_height/2))
             line_pixel += line_height
     
     def scroll(self, dir):
@@ -90,6 +92,9 @@ class CombatLog:
         if self.currentline + dir + self.height/line_height - 1 >= len(self.log):
             return
         self.currentline += dir
+    
+    def append(self, line):
+        self.log.append(line)
 
 class FleetPanel:
     def __init__(self, side, major_font, minor_font, width_frac=.2):
@@ -127,14 +132,16 @@ class FleetPanel:
         y = self.rect.top + buffer
         for bg in self.battlegroups_originalorder:
             bg_top = y
-            if bg.state == 'activated':
+            if bg.state is BattlegroupState.ACTIVATED:
                 bg_color = NordColors.nord3
-            elif bg.state == 'active':
+            elif bg.state is BattlegroupState.ACTIVE:
                 bg_color = NordColors.frost0
-            elif bg.state == 'pending active':
+            elif bg.state is BattlegroupState.PENDING_ACTIVATION:
                 bg_color = NordColors.frost2
-            elif bg.state == 'not yet active':
+            elif bg.state is BattlegroupState.NOT_YET_ACTIVE:
                 bg_color = NordColors.snow0
+            else:
+                raise Exception
             font_render = self.line_font.render(str(bg),True,bg_color)
             self.surf.blit(font_render,(buffer, y))
             y = y + line_height + buffer
@@ -180,9 +187,9 @@ class FleetPanel:
                     y = y + 2*buffer                    
                 y = y + buffer
             bg_boundary = pygame.Rect(.5*buffer, bg_top-.5*buffer, self.width-buffer, y-bg_top-.5*buffer)
-            if bg.state == 'active' or bg.hovered:
+            if bg.state is BattlegroupState.ACTIVE or bg.hovered:
                 pygame.draw.rect(self.surf, NordColors.frost0, bg_boundary, 2)
-            elif bg.state == 'pending active':
+            elif bg.state is BattlegroupState.PENDING_ACTIVATION:
                 pygame.draw.rect(self.surf, NordColors.frost2, bg_boundary, 2)
         self.content_height = y
         # surf.blit(self.surf,(0,0))
@@ -252,13 +259,19 @@ class InfoPanel:
     def scroll(self, dir):
         pass
 
+class BattlegroupState(Enum):
+    NOT_YET_ACTIVE = auto()
+    ACTIVE = auto()
+    ACTIVATED = auto()
+    PENDING_ACTIVATION = auto()
+
 class Battlegroup:
     def __init__(self, sr, size, points):
         self.size = size
         self.sr = int(sr)
         self.points = points
         self.groups = []
-        self.state = 'not yet active'
+        self.state = BattlegroupState.NOT_YET_ACTIVE
         self.hovered = False
         self.up_arrow_rect = None
         self.down_arrow_rect = None
@@ -275,6 +288,23 @@ class Battlegroup:
             out_str = out_str + f'{len(group)} {group[0].shipclass}, '
         out_str = out_str[:-2]
         return out_str
+    
+    def update(self):
+        if self.state is BattlegroupState.ACTIVE:
+            for group in self.groups:
+                for ship in group:
+                    if ship.state is ShipState.MOVING or ship.state is ShipState.FIRING:
+                        # print('ships left to activate')
+                        return
+            print('all ships activated, make battlegroup activated')
+            self.state = BattlegroupState.ACTIVATED
+    
+    def activate(self):
+        for group in self.groups:
+            for ship in group:
+                ship.state = ShipState.MOVING
+                for gun in ship.guns:
+                    gun.active = True
     
 class ShipGroup:
     def __init__(self):
@@ -352,7 +382,7 @@ class GameController:
         self.p2_button = None
         self.active_bg = None
         self.combatlog = None
-        self.firing_queue = Queue()
+        self.target_queue = None
         # self.needs_update = True
         # self.activation_queue = Queue()
     
@@ -410,13 +440,13 @@ class GameController:
         elif self.current_state == 'Planning (P1)':
             self.bg_plan_screen.bgs = self.p2_battlegroups
             self.current_state = 'Planning (P2)'
-        elif self.current_state == 'Planning (P2)':
+        elif self.current_state == 'Planning (P2)' or 'Activate Battlegroup' in self.current_state:
             self.current_state = f'Turn {self.turn}: Select Player Order'
             index = self.turn-1
             p1_sr = self.p1_battlegroups[index].sr
-            self.p1_battlegroups[index].state = 'active'
+            self.p1_battlegroups[index].state = BattlegroupState.ACTIVE
             p2_sr = self.p2_battlegroups[index].sr
-            self.p2_battlegroups[index].state = 'active'
+            self.p2_battlegroups[index].state = BattlegroupState.ACTIVE
             if p1_sr == p2_sr:
                 self.firstplayer = random.choice([1,2])
                 self.combatlog.log.append(f'Battlegroups have same strategy rating, player {self.firstplayer} picks')
@@ -429,18 +459,43 @@ class GameController:
         elif 'Select Player Order' in self.current_state:
             self.current_state = f'Turn {self.turn}: P{next_player} Activate Battlegroup'
             if next_player == 1:
-                self.p2_battlegroups[self.turn-1].state = 'pending active'
+                self.p2_battlegroups[self.turn-1].state = BattlegroupState.PENDING_ACTIVATION
                 self.active_bg = self.p1_battlegroups[self.turn-1]
             else:
-                self.p1_battlegroups[self.turn-1].state = 'pending active'
+                self.p1_battlegroups[self.turn-1].state = BattlegroupState.PENDING_ACTIVATION
                 self.active_bg = self.p2_battlegroups[self.turn-1]
-            for group in self.active_bg.groups:
-                for ship in group:
-                    ship.state = ShipState.MOVING
-                    for gun in ship.guns:
-                        gun.active = True
+            self.active_bg.activate()
         return self.current_state
         # print(f'now on phase {self.current_state}')
+    
+    def update(self):
+        if 'Activate' in self.current_state:
+            self.active_bg.update()
+            if self.active_bg.state is BattlegroupState.ACTIVATED:
+                print('active battlegroup done, resolve queued attacks')
+                while not self.target_queue.is_empty():
+                    gun, target = self.target_queue.pop()
+                    result = gun.shoot(target)
+                    print(result)
+                    for line in result:
+                        self.combatlog.append(line)
+                print('check if opposing battlegroup also activated')
+                p1_activated = self.p1_battlegroups[self.turn-1].state is BattlegroupState.ACTIVATED
+                p2_activated = self.p2_battlegroups[self.turn-1].state is BattlegroupState.ACTIVATED
+                if p1_activated and p2_activated:
+                    self.turn = self.turn + 1
+                    self.next_phase()
+                    return
+                print('activate other pending battlegroup')
+                if self.p1_battlegroups[self.turn-1].state is BattlegroupState.PENDING_ACTIVATION:
+                    self.active_bg = self.p1_battlegroups[self.turn-1]
+                    next_player = 1
+                elif self.p2_battlegroups[self.turn-1].state is BattlegroupState.PENDING_ACTIVATION:
+                    self.active_bg = self.p2_battlegroups[self.turn-1]
+                    next_player = 2
+                self.current_state = f'Turn {self.turn}: P{next_player} Activate Battlegroup'
+                self.active_bg.state = BattlegroupState.ACTIVE
+                self.active_bg.activate()
     
     def ship_selectable(self):
         return self.current_state == 'Setup' or 'Activate' in self.current_state
@@ -524,7 +579,39 @@ class Player:
                     group.append(newship)
                 currentBG.groups.append(group)
         return self.battlegroups
+    
+    def update(self):
+        pass
+        # for bg in self.battlegroups:
+        #     bg.update()
+        # if self.state is 
 
 class TargetQueue:
-    def __init__(self):
+    def __init__(self, font):
         self.target_queue = []
+        self.rect = pygame.Rect(0,0,300,0)
+        self.font = font
+        self.active = False
+        self.font_height = font.size('')[1]
+
+    def draw(self, surf):
+        self.rect.left = surf.get_width()*.2
+        self.rect.height = len(self.target_queue)*self.font_height
+        x = self.rect.left
+        y = 0
+        if not self.target_queue:
+            return
+        pygame.draw.rect(surf, NordColors.nord0, self.rect)
+        for gun, target in self.target_queue:
+            line_render = self.font.render(f'{gun.guntype} on {gun.ship} -> {target}', True, NordColors.snow0)
+            surf.blit(line_render, (x,y))
+            y = y + self.font_height
+    
+    def append(self, gun, target):
+        self.target_queue.append((gun,target))
+    
+    def pop(self):
+        return self.target_queue.pop(0)
+    
+    def is_empty(self):
+        return len(self.target_queue) == 0
