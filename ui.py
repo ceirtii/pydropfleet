@@ -407,14 +407,18 @@ class GameController:
         gamephase_render_size = self.title_font.size(state_text)
         surf.blit(gamephase_render, ((surf.get_width()-gamephase_render_size[0])/2,0))
 
-        endturn = 'End Turn'
-        endturnbutton_render = self.major_font.render(endturn, True, NordColors.snow0)
-        endturnbutton_render_width = self.major_font.size(endturn)
-        self.rect.left = (surf.get_width()-endturnbutton_render_width[0])/2
-        self.rect.top = gamephase_render_size[1]
-        self.rect.size = endturnbutton_render_width
-        pygame.draw.rect(surf, NordColors.nord3, self.rect)
-        surf.blit(endturnbutton_render, (self.rect.left,self.rect.top))
+        if 'Round' in self.current_state:
+            # don't draw end turn button
+            self.rect = pygame.Rect(0,0,0,0)
+        else:
+            endturn = 'End Turn'
+            endturnbutton_render = self.major_font.render(endturn, True, NordColors.snow0)
+            endturnbutton_render_width = self.major_font.size(endturn)
+            self.rect.left = (surf.get_width()-endturnbutton_render_width[0])/2
+            self.rect.top = gamephase_render_size[1]
+            self.rect.size = endturnbutton_render_width
+            pygame.draw.rect(surf, NordColors.nord3, self.rect)
+            surf.blit(endturnbutton_render, (self.rect.left,self.rect.top))
 
         if 'Planning' in self.current_state:
             self.bg_plan_screen.draw(surf)
@@ -445,24 +449,35 @@ class GameController:
             surf.blit(p2_button_render,p2_button_loc)
     
     def next_phase(self, next_player=None):
-        if self.current_state == 'Setup':
+        if 'Cleanup' in self.current_state:
+            print('Battlegroup activations complete, perform round cleanup')
+
+        elif self.current_state is 'Setup' or 'Roundup' in self.current_state:
+            print(f'{self.current_state} phase complete, plan battlegroup activation order')
             self.current_state = 'Planning (P1)'
             self.bg_plan_screen = BattlegroupPlanner(self.p1_battlegroups, self.major_font, self.minor_font)
             for bg in self.p1_battlegroups+self.p2_battlegroups:
                 for group in bg.groups:
                     for ship in group:
                         ship.state = ShipState.NOT_YET_ACTIVATED
+
         elif self.current_state == 'Planning (P1)':
+            print(f'player 1 finished planning, player 2 plan battlegroup activation order')
             self.bg_plan_screen.bgs = self.p2_battlegroups
             self.current_state = 'Planning (P2)'
+
         elif self.current_state == 'Planning (P2)' or 'Activate Battlegroup' in self.current_state:
             self.current_state = f'Round {self.round}: Select Player Order'
+            print(f'turn {self.turn}')
             index = self.turn-1
             if index > len(self.p1_battlegroups) and index > len(self.p2_battlegroups):
-                self.combatlog.log('all battlegroups activated, starting new round')
+                self.combatlog.log('all battlegroups activated, round cleanup')
                 self.round = self.round + 1
                 self.turn = 1
+                self.current_state = f'Round {self.round}: Cleanup'
+
             elif index < len(self.p1_battlegroups) and index < len(self.p2_battlegroups):
+                print('battlegroups left to activate')
                 p1_sr = self.p1_battlegroups[index].sr
                 self.p1_battlegroups[index].state = BattlegroupState.ACTIVE
                 p2_sr = self.p2_battlegroups[index].sr
@@ -476,12 +491,17 @@ class GameController:
                     else:
                         self.firstplayer = 2
                     self.combatlog.log.append(f'Player {self.firstplayer} picks, has lower strategy rating {min(p1_sr, p2_sr)}')
+
             elif index > len(self.p1_battlegroups):
-                # continue activating player 2 battlegroups
+                print(f'p1 battlegroups all activated, continue activating player 2 battlegroups')
                 if index < len(self.p2_battlegroups):
                     for bg in self.p1_battlegroups[index+1:]:
                         bg.state = BattlegroupState.PENDING_ACTIVATION
                     self.current_state = f'Round {self.round}: P2 Activate Battlegroup'
+
+            elif index > len(self.p2_battlegroups):
+                print(f'p2 battlegroups all activated, continue activating player 1 battlegroups')
+
         elif 'Select Player Order' in self.current_state:
             self.current_state = f'Round {self.round}: P{next_player} Activate Battlegroup'
             if next_player == 1:
@@ -509,6 +529,7 @@ class GameController:
                 p1_activated = self.p1_battlegroups[self.turn-1].state is BattlegroupState.ACTIVATED
                 p2_activated = self.p2_battlegroups[self.turn-1].state is BattlegroupState.ACTIVATED
                 if p1_activated and p2_activated:
+                    print('both active battlegroups activated, do next turn')
                     self.turn = self.turn + 1
                     self.next_phase()
                     return
@@ -519,7 +540,7 @@ class GameController:
                 elif self.p2_battlegroups[self.turn-1].state is BattlegroupState.PENDING_ACTIVATION:
                     self.active_bg = self.p2_battlegroups[self.turn-1]
                     next_player = 2
-                self.current_state = f'Turn {self.turn}: P{next_player} Activate Battlegroup'
+                self.current_state = f'Round {self.round}: P{next_player} Activate Battlegroup'
                 self.active_bg.state = BattlegroupState.ACTIVE
                 self.active_bg.activate()
     

@@ -79,6 +79,8 @@ class Ship(pygame.sprite.Sprite):
         self.group = None
         self.hover = False
         self.fired_guns = 0
+        self.crippled = False
+        self.scanner_damage = 0
 
     @staticmethod
     def load_shipDB():
@@ -290,6 +292,44 @@ class Ship(pygame.sprite.Sprite):
         out.append(f'damage mitigated: {mitigated_hits}')
         self.hp = self.hp - hits - crits
         out.append(f'damage dealt: {hits + crits}')
+        # check for crippling damage
+        if not self.crippled:
+            if self.hp <= self.hull/2:
+                out.append('rolling for crippling damage')
+                self.crippled = True
+                location = random.choice(['subsystems', 'hull', 'core systems'])
+                if location is 'subsystems':
+                    damage = random.choice(['flash', 'fire', 'energy surge'])
+                    if damage is 'flash':
+                        self.active_sig = self.active_sig + 6
+                    elif damage is 'fire':
+                        print('fire!')
+                    else:
+                        self.hp = self.hp - 2
+                        self.orbital_decay = True
+                elif location is 'hull':
+                    damage = random.choice(['scanners offline', 'armor cracked', 'hull breach'])
+                    if damage is 'scanners offline':
+                        self.scanners_offline = True
+                    elif damage is 'armor cracked':
+                        self.armor_cracked = True
+                        self.hp = self.hp - 2
+                    else:
+                        self.hp = self.hp - 2
+                        self.orbital_decay = True
+                else:
+                    damage = random.choice(['engines disabled', 'weapons offline', 'reactor overload'])
+                    if damage is 'engines disabled':
+                        self.hp = self.hp - 2
+                        self.engines_disabled = True
+                        self.orbital_decay = True
+                    elif damage is 'weapons offline':
+                        self.hp = self.hp - 3
+                        self.weapons_offline = True
+                    else:
+                        self.hp = self.hp - 3
+                        self.orbital_decay = True
+                out.append(f'ship crippled effect: {damage}')
         return out
 
 class ShipOrder(Enum):
