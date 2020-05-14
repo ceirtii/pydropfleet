@@ -84,7 +84,7 @@ class CombatLog:
             line_pixel += line_height
     
     def scroll(self, dir):
-        line_height = pygame.font.Font('kooten.ttf', 20).size('')[1]
+        line_height = self.line_font.size('')[1]
         if len(self.log)*line_height < self.height:
             return
         if self.currentline + dir < 0:
@@ -147,8 +147,18 @@ class FleetPanel:
             y = y + line_height + buffer
             for group in bg.groups:
                 for ship in group:
-                    font_render = self.line_font.render(f'{ship.faction} {ship.name}',True,NordColors.snow1)
-                    class_render = self.minor_font.render(f'{ship.shipclass}-class {ship.shiptype}',True,NordColors.snow2)
+                    if ship.state in [ShipState.FIRING, ShipState.MOVING]:
+                        ship_font_color = NordColors.frost0
+                    elif ship.state is ShipState.DESTROYED:
+                        ship_font_color = NordColors.aurora0
+                    elif ship.state is ShipState.ACTIVATED:
+                        ship_font_color = NordColors.frost3
+                    else:
+                        ship_font_color = NordColors.snow0
+                    font_render = self.line_font.render(f'{ship.faction} {ship.name}', True, ship_font_color)
+                    class_render = self.minor_font.render(f'{ship.shipclass}-class {ship.shiptype}', 
+                            True, 
+                            ship_font_color)
                     box_height = line_height+2*minor_height+buffer
                     
                     ship.panel_rect.left = 1.5*buffer
@@ -220,7 +230,10 @@ class InfoPanel:
 
     def draw(self, surf):
         self.hovered_gun = None
-        self.rect = pygame.Rect(surf.get_width()/2,surf.get_height()*(1-self.height_frac),surf.get_width()*self.width_frac,surf.get_height()*self.height_frac)
+        self.rect = pygame.Rect(surf.get_width()/2,
+                surf.get_height()*(1-self.height_frac),
+                surf.get_width()*self.width_frac,
+                surf.get_height()*self.height_frac)
         pygame.draw.rect(surf, self.color, self.rect)
         
         # line_font = pygame.font.Font('kooten.ttf', 18)
@@ -239,7 +252,7 @@ class InfoPanel:
             surf.blit(shipname_render, (self.rect.left+self.buffer,y))
             y = y + line_height
             for gun in self.selectedship.guns:
-                if gun.active:
+                if gun.state is GunState.TARGETING:
                     gun_text_color = NordColors.frost0
                 else:
                     gun_text_color = NordColors.frost3
@@ -302,9 +315,10 @@ class Battlegroup:
     def activate(self):
         for group in self.groups:
             for ship in group:
-                ship.state = ShipState.MOVING
-                for gun in ship.guns:
-                    gun.active = True
+                if ship.state is not ShipState.DESTROYED:
+                    ship.state = ShipState.MOVING
+                    for gun in ship.guns:
+                        gun.state = GunState.TARGETING
     
 class ShipGroup:
     def __init__(self):
@@ -383,6 +397,7 @@ class GameController:
         self.active_bg = None
         self.combatlog = None
         self.target_queue = None
+        self.round = 1
         # self.needs_update = True
         # self.activation_queue = Queue()
     
@@ -441,23 +456,34 @@ class GameController:
             self.bg_plan_screen.bgs = self.p2_battlegroups
             self.current_state = 'Planning (P2)'
         elif self.current_state == 'Planning (P2)' or 'Activate Battlegroup' in self.current_state:
-            self.current_state = f'Turn {self.turn}: Select Player Order'
+            self.current_state = f'Round {self.round}: Select Player Order'
             index = self.turn-1
-            p1_sr = self.p1_battlegroups[index].sr
-            self.p1_battlegroups[index].state = BattlegroupState.ACTIVE
-            p2_sr = self.p2_battlegroups[index].sr
-            self.p2_battlegroups[index].state = BattlegroupState.ACTIVE
-            if p1_sr == p2_sr:
-                self.firstplayer = random.choice([1,2])
-                self.combatlog.log.append(f'Battlegroups have same strategy rating, player {self.firstplayer} picks')
-            else:
-                if p1_sr < p2_sr:
-                    self.firstplayer = 1
+            if index > len(self.p1_battlegroups) and index > len(self.p2_battlegroups):
+                self.combatlog.log('all battlegroups activated, starting new round')
+                self.round = self.round + 1
+                self.turn = 1
+            elif index < len(self.p1_battlegroups) and index < len(self.p2_battlegroups):
+                p1_sr = self.p1_battlegroups[index].sr
+                self.p1_battlegroups[index].state = BattlegroupState.ACTIVE
+                p2_sr = self.p2_battlegroups[index].sr
+                self.p2_battlegroups[index].state = BattlegroupState.ACTIVE
+                if p1_sr == p2_sr:
+                    self.firstplayer = random.choice([1,2])
+                    self.combatlog.log.append(f'Battlegroups have same strategy rating, player {self.firstplayer} picks')
                 else:
-                    self.firstplayer = 2
-                self.combatlog.log.append(f'Player {self.firstplayer} picks, has lower strategy rating {min(p1_sr, p2_sr)}')
+                    if p1_sr < p2_sr:
+                        self.firstplayer = 1
+                    else:
+                        self.firstplayer = 2
+                    self.combatlog.log.append(f'Player {self.firstplayer} picks, has lower strategy rating {min(p1_sr, p2_sr)}')
+            elif index > len(self.p1_battlegroups):
+                # continue activating player 2 battlegroups
+                if index < len(self.p2_battlegroups):
+                    for bg in self.p1_battlegroups[index+1:]:
+                        bg.state = BattlegroupState.PENDING_ACTIVATION
+                    self.current_state = f'Round {self.round}: P2 Activate Battlegroup'
         elif 'Select Player Order' in self.current_state:
-            self.current_state = f'Turn {self.turn}: P{next_player} Activate Battlegroup'
+            self.current_state = f'Round {self.round}: P{next_player} Activate Battlegroup'
             if next_player == 1:
                 self.p2_battlegroups[self.turn-1].state = BattlegroupState.PENDING_ACTIVATION
                 self.active_bg = self.p1_battlegroups[self.turn-1]

@@ -3,7 +3,8 @@
     "guntype": "Twin Supernova Laser",
     "lock": "3",
     "attack": "2",
-    "damage": "1"
+    "damage": "1",
+    "burnthrough": 6
   },
   {
     "guntype": "Wasp Drones",
@@ -28,7 +29,8 @@
     "guntype": "Cobra Heavy Laser",
     "lock": "3",
     "attack": "2",
-    "damage": "1"
+    "damage": "1",
+    "burnthrough": 6
   },
   {
     "guntype": "Swordfish Missile Bays",
@@ -61,13 +63,15 @@
     "guntype": "Supernova Laser",
     "lock": "3",
     "attack": "1",
-    "damage": "1"
+    "damage": "1",
+    "burnthrough": 3
   },
   {
     "guntype": "Light Calibre Broadside",
     "lock": "5",
     "attack": "12",
-    "damage": "1"
+    "damage": "1",
+    "calibre": "light"
   },
   {
     "guntype": "Wasp Drones",
@@ -111,7 +115,8 @@
     "guntype": "Light Calibre Battery",
     "lock": "5",
     "attack": "6",
-    "damage": "1"
+    "damage": "1",
+    "calibre": "light"
   },
   {
     "guntype": "Medium Calibre Battery",

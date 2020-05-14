@@ -8,7 +8,8 @@
     "hull": 13,
     "armor": 3,
     "pd": 5,
-    "shiptype": "Heavy Cruiser"
+    "shiptype": "Heavy Cruiser",
+    "tonnage": "heavy"
   },
   {
     "shipclass": "Pandora",
@@ -19,7 +20,8 @@
     "hull": 5,
     "armor": 3,
     "pd": 3,
-    "shiptype": "Battleship"
+    "shiptype": "Frigate",
+    "tonnage": "light"
   },
   {
     "shipclass": "Beijing",
@@ -30,7 +32,8 @@
     "hull": 18,
     "armor": 3,
     "pd": 10,
-    "shiptype": "Battleship"
+    "shiptype": "Battleship",
+    "tonnage": "superheavy"
   },
   {
     "shipclass": "New York",
@@ -41,7 +44,8 @@
     "hull": 18,
     "armor": 3,
     "pd": 10,
-    "shiptype": "Battleship"
+    "shiptype": "Battleship",
+    "tonnage": "superheavy"
   },
   {
     "shipclass": "Tokyo",
@@ -52,7 +56,8 @@
     "hull": 18,
     "armor": 3,
     "pd": 10,
-    "shiptype": "Battleship"
+    "shiptype": "Battleship",
+    "tonnage": "superheavy"
   },
   {
     "shipclass": "Calypso",
@@ -63,7 +68,8 @@
     "hull": 5,
     "armor": 3,
     "pd": 3,
-    "shiptype": "Frigate"
+    "shiptype": "Frigate",
+    "tonnage": "light"
   },
   {
     "shipclass": "Priam",
@@ -74,7 +80,8 @@
     "hull": 15,
     "armor": 3,
     "pd": 7,
-    "shiptype": "Battlecruiser"
+    "shiptype": "Battlecruiser",
+    "tonnage": "heavy"
   },
   {
     "shipclass": "Orpheus",
@@ -85,7 +92,8 @@
     "hull": 13,
     "armor": 3,
     "pd": 5,
-    "shiptype": "Assault Troopship"
+    "shiptype": "Assault Troopship",
+    "tonnage": "medium"
   },
   {
     "shipclass": "Medea",
@@ -96,7 +104,8 @@
     "hull": 5,
     "armor": 3,
     "pd": 3,
-    "shiptype": "Strike Carrier"
+    "shiptype": "Strike Carrier",
+    "tonnage": "light"
   },
   {
     "shipclass": "Orion",
@@ -107,7 +116,8 @@
     "hull": 11,
     "armor": 3,
     "pd": 5,
-    "shiptype": "Cruiser"
+    "shiptype": "Cruiser",
+    "tonnage": "medium"
   },
   {
     "shipclass": "Echo",
@@ -118,7 +128,8 @@
     "hull": 2,
     "armor": 4,
     "pd": 2,
-    "shiptype": "Corvette"
+    "shiptype": "Corvette",
+    "tonnage": "light"
   },
   {
     "shipclass": "Europa",
@@ -129,7 +140,8 @@
     "hull": 5,
     "armor": 3,
     "pd": 3,
-    "shiptype": "Frigate"
+    "shiptype": "Frigate",
+    "tonnage": "light"
   },
   {
     "shipclass": "Theseus",
@@ -140,7 +152,8 @@
     "hull": 9,
     "armor": 3,
     "pd": 2,
-    "shiptype": "Light Cruiser"
+    "shiptype": "Light Cruiser",
+    "tonnage": "medium"
   },
   {
     "shipclass": "Ikarus",
@@ -151,7 +164,8 @@
     "hull": 11,
     "armor": 3,
     "pd": 5,
-    "shiptype": "Vanguard Carrier"
+    "shiptype": "Vanguard Carrier",
+    "tonnage": "medium"
   },
   {
     "shipclass": "Moscow",
@@ -162,7 +176,8 @@
     "hull": 12,
     "armor": 3,
     "pd": 5,
-    "shiptype": "Heavy Cruiser"
+    "shiptype": "Heavy Cruiser",
+    "tonnage": "heavy"
   },
   {
     "shipclass": "Jakarta",
@@ -173,7 +188,8 @@
     "hull": 4,
     "armor": 4,
     "pd": 3,
-    "shiptype": "Aegis Frigate"
+    "shiptype": "Aegis Frigate",
+    "tonnage": "light"
   },
   {
     "shipclass": "Seattle",
@@ -184,7 +200,8 @@
     "hull": 10,
     "armor": 3,
     "pd": 5,
-    "shiptype": "Fleet Carrier"
+    "shiptype": "Fleet Carrier",
+    "tonnage": "medium"
   },
   {
     "shipclass": "New Cairo",
@@ -195,7 +212,8 @@
     "hull": 8,
     "armor": 4,
     "pd": 5,
-    "shiptype": "Light Cruiser"
+    "shiptype": "Light Cruiser",
+    "tonnage": "medium"
   },
   {
     "shipclass": "Lima",
@@ -206,7 +224,8 @@
     "hull": 4,
     "armor": 4,
     "pd": 3,
-    "shiptype": "Frigate"
+    "shiptype": "Frigate",
+    "tonnage": "light"
   },
   {
     "shipclass": "Taipei",
@@ -217,7 +236,8 @@
     "hull": 4,
     "armor": 4,
     "pd": 3,
-    "shiptype": "Missile Frigate"
+    "shiptype": "Missile Frigate",
+    "tonnage": "light"
   },
   {
     "shipclass": "Santiago",
@@ -228,7 +248,8 @@
     "hull": 2,
     "armor": 5,
     "pd": 2,
-    "shiptype": "Corvette"
+    "shiptype": "Corvette",
+    "tonnage": "light"
   },
   {
     "shipclass": "New Orleans",
@@ -239,7 +260,8 @@
     "hull": 4,
     "armor": 4,
     "pd": 3,
-    "shiptype": "Strike Carrier"
+    "shiptype": "Strike Carrier",
+    "tonnage": "light"
   },
   {
     "shipclass": "Vancouver",
@@ -250,6 +272,7 @@
     "hull": 6,
     "armor": 4,
     "pd": 3,
-    "shiptype": "Escort Carrier"
+    "shiptype": "Escort Carrier",
+    "tonnage": "light2"
   }
 ]

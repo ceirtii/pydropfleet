@@ -1,7 +1,7 @@
 import pygame
 import csv
 from enum import Enum, auto
-from guns import Weapon
+from guns import *
 import copy
 import json
 import random
@@ -26,6 +26,7 @@ class Ship(pygame.sprite.Sprite):
         self.armor = Ship.shipDB[shipclass]['armor']
         self.pd = Ship.shipDB[shipclass]['pd']
         self.shiptype = Ship.shipDB[shipclass]['shiptype']
+        self.tonnage = Ship.shipDB[shipclass]['tonnage']
         self.guns = []
         self.linked_guns = dict()
         self.player = None
@@ -47,7 +48,7 @@ class Ship(pygame.sprite.Sprite):
                 gun_obj.linked = link_index
                 # print('linked guns')
             if 'count' in gun:
-                gun_obj.count = gun['count']
+                gun_obj.count = int(gun['count'])
             self.guns.append(gun_obj)
 
         self.image0 = pygame.image.load(imagepath).convert_alpha()
@@ -77,6 +78,7 @@ class Ship(pygame.sprite.Sprite):
         self.state = ShipState.SETUP
         self.group = None
         self.hover = False
+        self.fired_guns = 0
 
     @staticmethod
     def load_shipDB():
@@ -187,32 +189,87 @@ class Ship(pygame.sprite.Sprite):
     
     def update(self):
         if self.hp < 1 and self.state is not ShipState.DESTROYED:
+            self.hp = 0
             self.state = ShipState.DESTROYED
             self.loc = (-1000,-1000)
+            self.rect = pygame.Rect(0,0,0,0)
+
         if self.state is ShipState.FIRING:
             print('checking if ship can fire guns')
-            no_target_available = True
+            # no_target_available = False
+            fired_guns = 0
+            pending_linked_guns = []
             if self.order is ShipOrder.STANDARD:
+                max_fired_guns = 1
+            else:
+                max_fired_guns = 1
+            for gun in self.guns:
+                print(f'testing gun {gun}')
+                print(f'gun has {gun.targetable_ships} targetable ships')
+                # if gun.targetable_ships is not None:
+                # no_target_available = no_target_available or 
+                if gun.state is GunState.FIRED:
+                    fired_guns = fired_guns + 1
+                    print('fired gun found, check if linked gun is valid')
+                    if gun.linked_gun:
+                        print('found linked gun')
+                        pending_linked_guns.append(gun)
+                        pending_linked_guns.append(gun.linked_gun)
+
+                        if gun.linked_gun.state is GunState.FIRED:
+                            print('linked gun has fired')
+                        elif gun.linked_gun.state is GunState.INACTIVE:
+                            print('linked gun has no valid targets')
+                        elif gun.linked_gun.state is GunState.TARGETING:
+                            print('linked gun is still targeting')
+                            fired_guns = fired_guns - 1
+                    else:
+                        print('no linked gun')
+                        # for gun1 in self.guns:
+                        #     if gun1 is not gun.linked_gun and gun1 is not gun:
+                        #         print(f'found unlinked gun {gun1}, setting inactive')
+                        #         gun1.active = False
+                        # all_guns_inactive = False
+                        # break
+                elif gun.targetable_ships is not None and gun.targetable_ships < 1:
+                    print('no targetable ships, disabling')
+                    gun.state = GunState.INACTIVE
+                    # break
+            # check linked guns
+            print(f'{fired_guns} guns fired, max of {max_fired_guns}')
+
+            fired_linked_gun_groups = int(len(pending_linked_guns)/2)
+            if fired_guns + fired_linked_gun_groups >= max_fired_guns:
+                print('disabling guns not linked')
                 for gun in self.guns:
-                    no_target_available = no_target_available and gun.targetable_ships == 0
-                    if not gun.active:
-                        print('inactive gun found')
-                        if not gun.linked_gun or not gun.linked_gun.active:
-                            print('linked gun also inactive')
-                            self.state = ShipState.ACTIVATED
-                            for gun1 in self.guns:
-                                gun1.active = False
-                        else:
-                            for gun1 in self.guns:
-                                if gun1 is not gun.linked_gun:
-                                    print('found unlinked gun, setting inactive')
-                                    gun1.active = False
-                if no_target_available:
-                    self.state = ShipState.ACTIVATED
-                    for gun in self.guns:
-                        gun.active = False
+                    if gun not in pending_linked_guns:
+                        gun.state = GunState.INACTIVE
+
+            # after each gun checked, see if crossed max fired guns threshold
+            if fired_guns >= max_fired_guns:
+                print('max fired guns reached')
+                for gun in self.guns:
+                    gun.state = GunState.INACTIVE
+                self.state = ShipState.ACTIVATED
+                # break
+            
+            # else:
+            all_guns_inactive = True
+            for gun in self.guns:
+                all_guns_inactive = all_guns_inactive and gun.state in [GunState.FIRED, GunState.INACTIVE]
+            if all_guns_inactive:
+                print('all guns inactive')
+                self.state = ShipState.ACTIVATED
+
+                # if no_target_available:
+                #     print('no target available, activating all guns')
+                #     self.state = ShipState.ACTIVATED
+                #     for gun in self.guns:
+                #         gun.active = False
 
                 # all guns not active
+        else:
+            self.fired_guns = 0
     
     def mitigate(self, hits, crits):
         out = []

@@ -34,7 +34,8 @@ ui = []
 ui_needs_update = True
 
 playarea = PlayArea()
-playarea.scale = min(DISPLAYSURF.get_width()/playarea.rect.width, DISPLAYSURF.get_height()/playarea.rect.height)
+playarea.scale = min(DISPLAYSURF.get_width()/playarea.rect.width, 
+        DISPLAYSURF.get_height()/playarea.rect.height)
 
 playarea.image = pygame.transform.rotozoom(playarea.image0,0,playarea.scale)
 playarea.rect = playarea.image.get_rect()
@@ -42,8 +43,8 @@ draggables.append(playarea)
 sprites.add(playarea)
 
 title_font = pygame.font.Font('kooten.ttf', 24)
-major_font = pygame.font.Font('kooten.ttf', 18)
-minor_font = pygame.font.Font('kooten.ttf', 14)
+major_font = pygame.font.Font('kooten.ttf', 14)
+minor_font = pygame.font.Font('kooten.ttf', 12)
 print('fonts loaded')
 
 gamecontroller = GameController(title_font, major_font, minor_font)
@@ -77,9 +78,11 @@ p2_fleetfile = open('p2.txt','r')
 p1_fleetpanel.battlegroups = player1.load_fleet(p1_fleetfile)
 p2_fleetpanel.battlegroups = player2.load_fleet(p2_fleetfile)
 
+ships = []
 for ship in player1.ships + player2.ships:
     sprites.add(ship)
     draggables.append(ship)
+    ships.append(ship)
 
 p1_fleetpanel.battlegroups_originalorder = [bg for bg in p1_fleetpanel.battlegroups]
 p2_fleetpanel.battlegroups_originalorder = [bg for bg in p2_fleetpanel.battlegroups]
@@ -124,17 +127,20 @@ while True:
                 print(f'mouse click at {event.pos}')
                 if targetpanel.rect.collidepoint(event.pos):
                     print('mouse click on target panel')
-                    if targetpanel.active and targetpanel.gun.active:
+                    if targetpanel.active and targetpanel.gun.state is GunState.TARGETING:
                         for index, rect in enumerate(targetpanel.target_rect_list):
                             if rect.collidepoint(event.pos):
                                 targeted_ship = targetpanel.target_list[index]
                                 targetqueue.append(targetpanel.gun, targeted_ship)
-                                targetpanel.gun.active = False
+                                targetpanel.gun.state = GunState.FIRED
+                                # if targetpanel.gun.linked_gun is None:
+                                    # targetpanel.gun.ship.fired_guns = targetpanel.gun.ship.fired_guns + 1
 
                 elif gamecontroller.rect.collidepoint(event.pos):
                     print('mouse click on next turn button')
                     if 'Select Player Order' not in gamecontroller.current_state:
                         gamecontroller.next_phase()
+                        infopanel.selectedship = None
 
                 elif infopanel.rect.collidepoint(event.pos):
                     print('mouse click on infopanel')
@@ -215,7 +221,9 @@ while True:
                                     ship.loc = playarea.pixeltogrid(ship.rect.center)
                                     ship.selection_loc = None
                                     ship.bearing = ship.selection_bearing
-                                    combatlog.log.append(f'{ship.name} moved to {ship.loc[0]:.1f}, {ship.loc[1]:.1f} bearing {ship.bearing:.3f}')
+                                    move_str = f'{ship.name} moved to {ship.loc[0]:.1f},'
+                                    move_str = move_str + f' {ship.loc[1]:.1f} bearing {ship.bearing:.3f}'
+                                    combatlog.log.append(move_str)
                                     if ship.state is ShipState.MOVING:
                                         ship.state = ShipState.FIRING
                                     break
@@ -235,14 +243,14 @@ while True:
                                 print('unselecting ship on infopanel')
                                 ship.highlight = False
                                 infopanel.selectedship = None
-                                break
                             else:
                                 print('selecting new infopanel ship')
                                 if infopanel.selectedship:
                                     infopanel.selectedship.highlight = False
                                 infopanel.selectedship = ship
                                 ship.highlight = True
-                                break
+                            for gun in ship.guns:
+                                gun.get_targetable_ships(selectable_ships, playarea)
                 else:
                     print('did nothing with mouse click')
 
@@ -299,7 +307,9 @@ while True:
                     print(f'{selectedship.loc}, {playarea.gridtopixel(selectedship.loc)}')
                     selectedship.rect.center = playarea.gridtopixel(selectedship.loc)
                     print(f'returned to {playarea.pixeltogrid(selectedship.rect.center)}, {selectedship.rect.center}')
-                    selectedship.image = pygame.transform.rotozoom(selectedship.image0, selectedship.bearing, selectedship.scale)
+                    selectedship.image = pygame.transform.rotozoom(selectedship.image0, 
+                            selectedship.bearing, 
+                            selectedship.scale)
                     selectedship = None
             if event.key == pygame.K_a:
                 for ship in ships:
@@ -339,7 +349,7 @@ while True:
             gun_to_draw.linked_gun.draw(DISPLAYSURF, playarea, linked=True)
         if gun_to_draw.ship.player is player1:
             check_ships = player2.ships
-        if gun_to_draw.ship.player is player2:
+        elif gun_to_draw.ship.player is player2:
             check_ships = player1.ships
         if not targetpanel.active:
             targetable_ships = gun_to_draw.get_targetable_ships(check_ships,playarea)
@@ -352,6 +362,13 @@ while True:
         if infopanel.selected_gun and infopanel.selected_gun.ship is not infopanel.selectedship:
             infopanel.selected_gun = None
         pygame.draw.rect(DISPLAYSURF, NordColors.frost1, infopanel.selectedship.rect, 1)
+        if infopanel.selectedship.player is player1:
+            check_ships = player2.ships
+        elif infopanel.selectedship.player is player2:
+            check_ships = player1.ships
+        for gun in infopanel.selectedship.guns:
+            targetable_ships = gun.get_targetable_ships(check_ships,playarea)
+
 
     if targetpanel.active:
         if targetpanel.gun.ship is not infopanel.selectedship:
@@ -361,12 +378,22 @@ while True:
                 if rect.collidepoint(mousepos):
                     targeted_ship = targetpanel.target_list[index]
                     pt1 = gun_to_draw.ship.rect.center
-                    pt2 = ship.rect.center
+                    pt2 = targeted_ship.rect.center
                     pygame.draw.line(DISPLAYSURF, NordColors.frost0,pt1,pt2)
 
     # hoveredship_drawn = False
     for ship in player1.ships + player2.ships:
         ship.hover = False
+        if ship.state is ShipState.DESTROYED and ship in ships:
+            ships.remove(ship)
+            if ship in draggables:
+                draggables.remove(ship)
+            if ship in sprites:
+                sprites.remove(ship)
+            if ship in player1.ships:
+                player1.ships.remove(ship)
+            if ship in player2.ships:
+                player2.ships.remove(ship)
         if show_signature:
             if ship.player == 1:
                 sig_color = NordColors.frost3
@@ -467,7 +494,10 @@ while True:
             border1_x2 = -maxthrust_pixel * math.sin(math.radians(bearing)) + selectedshipx_pixel
             border1_y1 = -minthrust_pixel * math.cos(math.radians(bearing)) + selectedshipy_pixel
             border1_y2 = -maxthrust_pixel * math.cos(math.radians(bearing)) + selectedshipy_pixel
-            pygame.draw.line(DISPLAYSURF,NordColors.frost0, (border1_x1, border1_y1), (border1_x2, border1_y2))
+            pygame.draw.line(DISPLAYSURF,
+                    NordColors.frost0, 
+                    (border1_x1, border1_y1), 
+                    (border1_x2, border1_y2))
 
         for i in [selectedship.minthrust,selectedship.maxthrust]:
             if i == 0: break
@@ -477,10 +507,17 @@ while True:
             left = playarea.gridtopixel(selectedship.loc)[0] - selectedship_thrust_pixel
             top = playarea.gridtopixel(selectedship.loc)[1] - selectedship_thrust_pixel
             dim = 2*selectedship_thrust_pixel
-            pygame.draw.arc(DISPLAYSURF, NordColors.frost0, pygame.Rect(left,top, dim, dim), math.radians(border1_bearing), math.radians(border2_bearing-180))
+            pygame.draw.arc(DISPLAYSURF, 
+                    NordColors.frost0, 
+                    pygame.Rect(left,top, dim, dim), 
+                    math.radians(border1_bearing), 
+                    math.radians(border2_bearing-180))
 
         selectedship.draw_firingarcs(DISPLAYSURF)
-        pygame.draw.line(DISPLAYSURF, NordColors.frost0, playarea.gridtopixel(selectedship.loc), selectedship.rect.center)
+        pygame.draw.line(DISPLAYSURF, 
+                NordColors.frost0, 
+                playarea.gridtopixel(selectedship.loc), 
+                selectedship.rect.center)
         # DISPLAYSURF.blit(sprite.image,(sprite.x, sprite.y))
     # else:
     #     for ship in ships:
@@ -492,7 +529,9 @@ while True:
         ui_el.draw(DISPLAYSURF)
             # ui_el.needs_update = False
 
-    fps_font_surface = fps_font.render(f'{INTERNALCLOCK.get_fps():.1f}', True, (255,255,255))
+    fps_font_surface = fps_font.render(f'{INTERNALCLOCK.get_fps():.1f}', 
+            True, 
+            (255,255,255))
     DISPLAYSURF.blit(fps_font_surface,(0,0))
 
     INTERNALCLOCK.tick()

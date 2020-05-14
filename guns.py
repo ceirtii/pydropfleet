@@ -3,7 +3,7 @@ import json
 from helper import fill_arc, NordColors
 import pygame
 import math
-from enum import Enum
+from enum import Enum, auto
 import random
 
 class WeaponArcs(Enum):
@@ -12,6 +12,12 @@ class WeaponArcs(Enum):
     LEFT = 135
     BACK = 225
     RIGHT = 315
+
+class GunState(Enum):
+    INACTIVE = auto()
+    TARGETING = auto()
+    FIRED = auto()
+    # DISABLED = auto()
 
 class Weapon:
     gunDB = dict()
@@ -44,9 +50,18 @@ class Weapon:
         self.count = count
         self.attack = Weapon.gunDB[guntype]['attack']
         self.damage = Weapon.gunDB[guntype]['damage']
+        try:
+            self.burnthrough = Weapon.gunDB[guntype]['burnthrough']
+        except KeyError:
+            self.burnthrough = None
+        try:
+            self.calibre = Weapon.gunDB[guntype]['calibre']
+        except KeyError:
+            self.calibre = None
         self.ship = ship
         self.rect = pygame.Rect(0,0,0,0)
-        self.active = False
+        # self.active = False
+        self.state = GunState.INACTIVE
         try:
             self.close_action = Weapon.gunDB[guntype]['close_action']
         except KeyError:
@@ -163,11 +178,12 @@ class Weapon:
         result = []
         result.append(f'{self.guntype} on {str(self.ship)} -> {str(ship)}')
         if 'd' in self.attack.lower():
-            self.attack.strip('d')
-            dice_faces, addition = map(int,self.attack.split('+'))
+            result.append(f'variable attack {self.attack}')
+            attack_cond = self.attack.strip('d')
+            dice_faces, addition = map(int,attack_cond.split('+'))
             attack_rolls = [random.randint(1,6) for i in range(random.randint(1,dice_faces)+addition)]
         else:
-            attack_rolls = [random.randint(1,6) for i in range(int(self.attack))]
+            attack_rolls = [random.randint(1,6) for i in range(int(self.attack)*self.count)]
         attack_str = ', '.join(map(str,attack_rolls))
         result.append(f'attack rolls: {attack_str}')
         # index = 0
@@ -184,6 +200,12 @@ class Weapon:
             pass
         else:
             lock = int(self.lock)
+        if self.calibre:
+            print(f'gun has calibre {self.calibre}, testing ship tonnage')
+            if self.calibre in ship.tonnage:
+                print('calibre matches target ship tonnage')
+                lock = lock - 1
+                result.append(f'gun calibre {self.calibre} matches ship tonnage {ship.tonnage}')
         if 'd' in str(self.damage).lower():
             pass
         else:
