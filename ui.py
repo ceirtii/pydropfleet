@@ -467,11 +467,16 @@ class GameController:
             self.current_state = 'Planning (P2)'
 
         elif self.current_state == 'Planning (P2)' or 'Activate Battlegroup' in self.current_state:
+            print(f'activate first battlegroup in turn {self.turn}')
             self.current_state = f'Round {self.round}: Select Player Order'
-            print(f'turn {self.turn}')
             index = self.turn-1
-            if index > len(self.p1_battlegroups) and index > len(self.p2_battlegroups):
-                self.combatlog.log('all battlegroups activated, round cleanup')
+            print(f'checking battlegroups at index {index}')
+            print(f'player 1 battlegroups contains {len(self.p1_battlegroups)} bgs')
+            print(f'player 2 battlegroups contains {len(self.p2_battlegroups)} bgs')
+
+            if index >= len(self.p1_battlegroups) and index >= len(self.p2_battlegroups):
+                print('all battlegroups activated, round cleanup')
+                self.combatlog.append('all battlegroups activated, round cleanup')
                 self.round = self.round + 1
                 self.turn = 1
                 self.current_state = f'Round {self.round}: Cleanup'
@@ -484,23 +489,27 @@ class GameController:
                 self.p2_battlegroups[index].state = BattlegroupState.ACTIVE
                 if p1_sr == p2_sr:
                     self.firstplayer = random.choice([1,2])
-                    self.combatlog.log.append(f'Battlegroups have same strategy rating, player {self.firstplayer} picks')
+                    self.combatlog.append(f'Battlegroups have same strategy rating, player {self.firstplayer} picks')
                 else:
                     if p1_sr < p2_sr:
                         self.firstplayer = 1
                     else:
                         self.firstplayer = 2
-                    self.combatlog.log.append(f'Player {self.firstplayer} picks, has lower strategy rating {min(p1_sr, p2_sr)}')
+                    self.combatlog.append(f'Player {self.firstplayer} picks, has lower strategy rating {min(p1_sr, p2_sr)}')
 
-            elif index > len(self.p1_battlegroups):
+            elif index >= len(self.p1_battlegroups):
                 print(f'p1 battlegroups all activated, continue activating player 2 battlegroups')
-                if index < len(self.p2_battlegroups):
-                    for bg in self.p1_battlegroups[index+1:]:
-                        bg.state = BattlegroupState.PENDING_ACTIVATION
-                    self.current_state = f'Round {self.round}: P2 Activate Battlegroup'
+                for bg in self.p2_battlegroups[index:]:
+                    bg.state = BattlegroupState.PENDING_ACTIVATION
+                self.current_state = f'Round {self.round}: P2 Activate Battlegroup'
 
-            elif index > len(self.p2_battlegroups):
+            elif index >= len(self.p2_battlegroups):
                 print(f'p2 battlegroups all activated, continue activating player 1 battlegroups')
+                for bg in self.p1_battlegroups[index:]:
+                    bg.state = BattlegroupState.PENDING_ACTIVATION
+                self.current_state = f'Round {self.round}: P2 Activate Battlegroup'
+            else:
+                print('how did you get here?')
 
         elif 'Select Player Order' in self.current_state:
             self.current_state = f'Round {self.round}: P{next_player} Activate Battlegroup'
@@ -525,21 +534,41 @@ class GameController:
                     print(result)
                     for line in result:
                         self.combatlog.append(line)
+                
                 print('check if opposing battlegroup also activated')
-                p1_activated = self.p1_battlegroups[self.turn-1].state is BattlegroupState.ACTIVATED
-                p2_activated = self.p2_battlegroups[self.turn-1].state is BattlegroupState.ACTIVATED
+                try:
+                    p1_activated = self.p1_battlegroups[self.turn-1].state is BattlegroupState.ACTIVATED
+                except IndexError:
+                    p1_activated = True
+
+                try:
+                    p2_activated = self.p2_battlegroups[self.turn-1].state is BattlegroupState.ACTIVATED
+                except IndexError:
+                    p2_activated = True
+
                 if p1_activated and p2_activated:
                     print('both active battlegroups activated, do next turn')
                     self.turn = self.turn + 1
                     self.next_phase()
                     return
+
                 print('activate other pending battlegroup')
-                if self.p1_battlegroups[self.turn-1].state is BattlegroupState.PENDING_ACTIVATION:
+                try:
+                    p1_pending = self.p1_battlegroups[self.turn-1].state is BattlegroupState.PENDING_ACTIVATION
+                except IndexError:
+                    p1_pending = False
+                try:
+                    p2_pending = self.p2_battlegroups[self.turn-1].state is BattlegroupState.PENDING_ACTIVATION
+                except IndexError:
+                    p2_pending = False
+
+                if p1_pending:
                     self.active_bg = self.p1_battlegroups[self.turn-1]
                     next_player = 1
-                elif self.p2_battlegroups[self.turn-1].state is BattlegroupState.PENDING_ACTIVATION:
+                elif p2_pending:
                     self.active_bg = self.p2_battlegroups[self.turn-1]
                     next_player = 2
+
                 self.current_state = f'Round {self.round}: P{next_player} Activate Battlegroup'
                 self.active_bg.state = BattlegroupState.ACTIVE
                 self.active_bg.activate()

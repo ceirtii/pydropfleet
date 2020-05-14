@@ -3,7 +3,8 @@ sam new drop-light fleet - 1245pts
 UCM - 10 launch assets
 
 SR5 Pathfinder battlegroup (178pts)
-4 x Taipei - 156pts - L
-1 x Santiago - 22pts - L
+1 x Taipei - 156pts - L
 
+SR12 Pathfinder battlegroup (258pts)
+1 x Theseus - 178pts - M
 ------------- dflist.com ------------- 
