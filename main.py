@@ -47,32 +47,43 @@ major_font = pygame.font.Font('kooten.ttf', 14)
 minor_font = pygame.font.Font('kooten.ttf', 12)
 print('fonts loaded')
 
+print('initializing gamecontroller')
 gamecontroller = GameController(title_font, major_font, minor_font)
 ui.append(gamecontroller)
 
+print('initializing combat log')
 combatlog = CombatLog(minor_font)
 gamecontroller.combatlog = combatlog
 ui.append(combatlog)
 
+print('initializing fleet panels')
 p1_fleetpanel = FleetPanel('left', major_font, minor_font)
 p2_fleetpanel = FleetPanel('right', major_font, minor_font)
 ui.append(p1_fleetpanel)
 ui.append(p2_fleetpanel)
 
+print('initializing info panel')
 infopanel = InfoPanel(major_font, minor_font)
 ui.append(infopanel)
 
+print('initializing target panel')
 targetpanel = TargetPanel(minor_font)
 ui.append(targetpanel)
 infopanel.targetpanel = targetpanel
 targetpanel.gamecontroller = gamecontroller
 
+print('initializing target queue')
 targetqueue = TargetQueue(minor_font)
 ui.append(targetqueue)
 gamecontroller.target_queue = targetqueue
 
+print('initializing players')
 player1 = Player(1, playarea)
 player2 = Player(2, playarea)
+player1.gamecontroller = gamecontroller
+player2.gamecontroller = gamecontroller
+
+print('loading fleets')
 p1_fleetfile = open('p1.txt','r')
 p2_fleetfile = open('p2.txt','r')
 p1_fleetpanel.battlegroups = player1.load_fleet(p1_fleetfile)
@@ -106,6 +117,7 @@ playwindow = pygame.Rect(DISPLAYSURF.get_width()*.2,0,DISPLAYSURF.get_width()*.6
 
 selection_color = NordColors.frost1
 
+print('starting game')
 while True:
 
     pygame.draw.rect(DISPLAYSURF,(0,0,0),pygame.Rect(0,0,DISPLAYSURF.get_width(),DISPLAYSURF.get_height()))
@@ -161,10 +173,10 @@ while True:
                                 infopanel.selected_gun = gun
                                 targetpanel.gun = gun
                                 targetpanel.active = True
-                                if gun.ship.player == 1:
-                                    check_ships = p2_ships
-                                if gun.ship.player == 2:
-                                    check_ships = p1_ships
+                                # if gun.ship.player == 1:
+                                #     check_ships = p2_ships
+                                # if gun.ship.player == 2:
+                                #     check_ships = p1_ships
                                 targetpanel.target_list = gun.get_targetable_ships(check_ships, playarea)
 
                 elif 'Planning' in gamecontroller.current_state:
@@ -372,10 +384,16 @@ while True:
         gun_to_draw.draw(DISPLAYSURF, playarea)
         if gun_to_draw.linked > 0:
             gun_to_draw.linked_gun.draw(DISPLAYSURF, playarea, linked=True)
+        
+        check_ships = []
         if gun_to_draw.ship.player is player1:
-            check_ships = player2.ships
+            for ship in player2.ships:
+                if ship.state is not ShipState.DESTROYED:
+                    check_ships.append(ship)
         elif gun_to_draw.ship.player is player2:
-            check_ships = player1.ships
+            for ship in player1.ships:
+                if ship.state is not ShipState.DESTROYED:
+                    check_ships.append(ship)
         if not targetpanel.active:
             targetable_ships = gun_to_draw.get_targetable_ships(check_ships,playarea)
             for ship in targetable_ships:

@@ -207,13 +207,6 @@ class Ship(pygame.sprite.Sprite):
         return out_str
     
     def update(self):
-        if self.hp < 1 and self.state is not ShipState.DESTROYED:
-            self.hp = 0
-            self.state = ShipState.DESTROYED
-            self.loc = (-1000,-1000)
-            self.rect = pygame.Rect(0,0,0,0)
-            self.battlegroup.update_sr()
-
         if self.state is ShipState.FIRING:
             print('checking if ship can fire guns')
             # no_target_available = False
@@ -333,6 +326,13 @@ class Ship(pygame.sprite.Sprite):
     
     def mitigate(self, hits, crits, close_action=False, flash=False):
         out = []
+        out.append(f'{str(self)} mitigating damage')
+
+        # check if attacking a ded ship
+        if self.hp == 0:
+            out.append('ship already dead!')
+            return out
+
         if close_action:
             out.append(f'defending against close action, applying pd {self.pd}')
             pd_rolls = [random.randint(1,6) for i in range(self.pd)]
@@ -431,6 +431,33 @@ class Ship(pygame.sprite.Sprite):
                         self.hp = self.hp - 3
                         self.orbital_decay = True
                 out.append(f'ship crippled effect: {damage}')
+        
+        # check ded
+        if self.hp < 1 and self.state is not ShipState.DESTROYED:
+            out.append(f'ship destroyed! rolling catastrophic damage:')
+            self.hp = 0
+            self.state = ShipState.DESTROYED
+            self.battlegroup.update_sr()
+
+            # do catastrophic damage
+            explode_roll = random.randint(1,6)
+            
+            if self.hull < 7:
+                explode_radius = random.randint(1,3)
+            else:
+                explode_radius = random.randint(1,6)
+
+            if self.hull >= 10:
+                explode_roll = explode_roll + 1
+
+            out.append(f'rolled {explode_roll}, radius {explode_radius}')
+            cata_damage = self.gamecontroller.do_catastrophic_damage(self, explode_roll, explode_radius)
+            for line in cata_damage:
+                out.append(line)
+            
+            self.loc = (-1000, -1000)
+            self.rect = pygame.Rect(0,0,0,0)
+        
         return out
     
     def draw_cohesion(self, surf):

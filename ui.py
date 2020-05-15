@@ -82,7 +82,7 @@ class CombatLog:
 
         line_pixel = 0
         for line in printloglines:
-            line_font_surface = self.line_font.render(line,True,self.font_color)
+            line_font_surface = self.line_font.render(str(line),True,self.font_color)
             surf.blit(line_font_surface,(self.rect.x + line_height/2, self.rect.y + line_pixel + line_height/2))
             line_pixel += line_height
     
@@ -594,7 +594,7 @@ class GameController:
     
     def update(self):
         for bg in self.p1_battlegroups + self.p2_battlegroups:
-            print(f'checking battlegroup {bg}')
+            # print(f'checking battlegroup {bg}')
             all_ships_destroyed = True
             for group in bg.groups:
                 for ship in group:
@@ -684,6 +684,7 @@ class GameController:
 
                 self.current_state = f'turn {self.turn}: P{next_player} Activate Battlegroup'
                 self.active_bg.activate()
+                self.combatlog.append(f'activating {self.active_bg}')
     
     def ship_selectable(self):
         return self.current_state == 'Setup' or 'Activate' in self.current_state
@@ -694,6 +695,61 @@ class GameController:
                 if ship.state != ShipState.FIRING:
                     return False
         return True
+    
+    def do_catastrophic_damage(self, explody_ship, explode_roll, explode_radius):
+        out = []
+        out.append('Catastrophic damage result:')
+        if explode_roll <= 2:
+            out.append(f'Burn up')
+            out.append(f'no ships affected')
+            return out
+
+        ships_in_radius = []
+        fleets = [self.p1_battlegroups, self.p2_battlegroups]
+        for fleet in fleets:
+            for bg in fleet:
+                for group in bg.groups:
+                    for ship in group:
+                        if ship.state is not ShipState.DESTROYED and ship is not explody_ship:
+                            x0, y0 = explody_ship.loc
+                            x1, y1 = ship.loc
+                            dist = math.dist([x0, y0], [x1, y1])
+                            if dist < explode_radius:
+                                ships_in_radius.append(ship)
+
+        if not ships_in_radius:
+            out.append('no ships in explosion radius')
+            return out
+
+        ship_list_str = ', '.join([ship.name for ship in ships_in_radius])
+        out.append(f'{ship_list_str} affected')
+
+        if explode_roll == 3:
+            out.append(f'Blazing Wreck: apply minor spike')
+            for ship in ships_in_radius:
+                ship.apply_spike(1)
+        elif explode_roll == 4:
+            out.append(f'Shredded: 1 hit')
+            for ship in ships_in_radius:
+                explosion_mitigation = ship.mitigate(1, 0)
+                out.append(explosion_mitigation)
+        elif explode_roll == 5:
+            out.append(f'Explosion: 2 hit')
+            for ship in ships_in_radius:
+                explosion_mitigation = ship.mitigate(2, 0)
+                out.append(explosion_mitigation)
+        elif explode_roll == 6:
+            out.append(f'Radiation Burst: 2 crits')
+            for ship in ships_in_radius:
+                explosion_mitigation = ship.mitigate(0, 2)
+                out.append(explosion_mitigation)
+        elif explode_roll > 6:
+            bubble_damage = random.randint(1,6)
+            out.append(f'Distortion Bubble: {bubble_damage} crits')
+            for ship in ships_in_radius:
+                explosion_mitigation = ship.mitigate(0, bubble_damage)
+                out.append(explosion_mitigation)
+        return out
 
 class TargetPanel:
     def __init__(self, major_font):
@@ -761,6 +817,7 @@ class Player:
                     newship.player = self
                     newship.battlegroup = currentBG
                     newship.group = group
+                    newship.gamecontroller = self.gamecontroller
                     self.ships.append(newship)
                     # draggables.append(newship)
                     # sprites.add(newship)
