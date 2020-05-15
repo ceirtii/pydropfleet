@@ -213,7 +213,10 @@ class Ship(pygame.sprite.Sprite):
                 if gun.state is GunState.FIRED:
                     fired_guns = fired_guns + 1
                     print('fired gun found, check if linked gun is valid')
-                    if gun.linked_gun:
+                    if gun.close_action:
+                        print('close action gun')
+                        fired_guns = fired_guns - 1
+                    elif gun.linked_gun:
                         print('found linked gun')
                         pending_linked_guns.append(gun)
                         pending_linked_guns.append(gun.linked_gun)
@@ -226,7 +229,7 @@ class Ship(pygame.sprite.Sprite):
                             print('linked gun is still targeting')
                             fired_guns = fired_guns - 1
                     else:
-                        print('no linked gun')
+                        print('not close action, no linked gun')
                         # for gun1 in self.guns:
                         #     if gun1 is not gun.linked_gun and gun1 is not gun:
                         #         print(f'found unlinked gun {gun1}, setting inactive')
@@ -237,6 +240,9 @@ class Ship(pygame.sprite.Sprite):
                     print('no targetable ships, disabling')
                     gun.state = GunState.INACTIVE
                     # break
+                elif gun.state is GunState.TARGETING and gun.close_action:
+                    print('close action gun not yet fired and has valid targets')
+                    fired_guns = fired_guns - 1
             # check linked guns
             print(f'{fired_guns} guns fired, max of {max_fired_guns}')
 
@@ -244,7 +250,7 @@ class Ship(pygame.sprite.Sprite):
             if fired_guns + fired_linked_gun_groups >= max_fired_guns:
                 print('disabling guns not linked')
                 for gun in self.guns:
-                    if gun not in pending_linked_guns:
+                    if gun not in pending_linked_guns and not gun.close_action:
                         gun.state = GunState.INACTIVE
 
             # after each gun checked, see if crossed max fired guns threshold
@@ -273,23 +279,58 @@ class Ship(pygame.sprite.Sprite):
         else:
             self.fired_guns = 0
     
-    def mitigate(self, hits, crits):
+    def mitigate(self, hits, crits, close_action=False):
         out = []
-        armor_rolls = [random.randint(1,6) for i in range(hits)]
-        armor_str = ', '.join(map(str,armor_rolls))
-        out.append(f'armor rolls: {armor_str}')
-        mitigated_hits = 0
-        if 'd' in str(self.armor):
-            pass
-        else:
-            armor = int(self.armor)
-        for roll in armor_rolls:
-            if hits == 0:
-                break
-            if roll >= armor:
-                mitigated_hits = mitigated_hits + 1
+        if close_action:
+            out.append(f'defending against close action, applying pd {self.pd}')
+            pd_rolls = [random.randint(1,6) for i in range(self.pd)]
+            pd_str = ', '.join(map(str,pd_rolls))
+            out.append(f'pd rolls: {pd_str}')
+            
+            blocked_by_pd = 0
+
+            for roll in pd_rolls:
+                if roll > 4:
+                    blocked_by_pd = blocked_by_pd + 1
+
+            mitigated_crits = 0
+
+            while crits > 0 and blocked_by_pd > 1:
+                crits = crits - 1
+                mitigated_crits = mitigated_crits + 1
+                blocked_by_pd = blocked_by_pd - 2
+
+            if mitigated_crits > 0:
+                out.append(f'mitigated {mitigated_crits} crits by pd')
+
+            mitigated_hits = 0
+            while hits > 0 and blocked_by_pd > 0:
                 hits = hits - 1
-        out.append(f'damage mitigated: {mitigated_hits}')
+                mitigated_hits = mitigated_hits + 1
+                blocked_by_pd = blocked_by_pd - 1
+
+            if mitigated_hits > 0:
+                out.append(f'mitigated {mitigated_hits} hits by pd')
+
+            if crits + hits == 0:
+                return out
+        
+        if hits > 0:
+            armor_rolls = [random.randint(1,6) for i in range(hits)]
+            armor_str = ', '.join(map(str,armor_rolls))
+            out.append(f'armor rolls: {armor_str}')
+            mitigated_hits = 0
+            if 'd' in str(self.armor):
+                pass
+            else:
+                armor = int(self.armor)
+            for roll in armor_rolls:
+                if hits == 0:
+                    break
+                if roll >= armor:
+                    mitigated_hits = mitigated_hits + 1
+                    hits = hits - 1
+            out.append(f'damage mitigated: {mitigated_hits}')
         self.hp = self.hp - hits - crits
         out.append(f'damage dealt: {hits + crits}')
         # check for crippling damage

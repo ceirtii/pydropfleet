@@ -216,10 +216,11 @@ class Weapon:
             elif val >= lock:
                 hits = hits + damage
         if hits > 0 or crits > 0:
-            result.append(f'normals hits: {hits}, crits {crits}')
+            result.append(f'normal hits: {hits}, critical hits: {crits}')
         else:
+            result.append(f'no hits')
             return result
-        ship_results = ship.mitigate(hits, crits)
+        ship_results = ship.mitigate(hits, crits, self.close_action)
         for line in ship_results:
             result.append(line)
         return result

@@ -186,7 +186,9 @@ class FleetPanel:
                     hp_start = ship.panel_rect.left+buffer
                     hp_end = ship.panel_rect.left+buffer+hull_bar_length*ship.hp/ship.hull
                     hull_end = hp_start+hull_bar_length
-                    pygame.draw.line(self.surf,NordColors.aurora3,(hp_start,y),(hp_end,y),4)
+
+                    if ship.hp != 0:
+                        pygame.draw.line(self.surf,NordColors.aurora3,(hp_start,y),(hp_end,y),4)
                     
                     if hp_end < hull_end:
                         pygame.draw.line(self.surf,NordColors.aurora0,(hp_end,y),(hull_end,y),4)
@@ -272,11 +274,16 @@ class InfoPanel:
     def scroll(self, dir):
         pass
 
+    def update(self):
+        if self.selected_gun and self.selected_gun.state is not GunState.TARGETING:
+            self.selected_gun = None
+
 class BattlegroupState(Enum):
     NOT_YET_ACTIVE = auto()
     ACTIVE = auto()
     ACTIVATED = auto()
     PENDING_ACTIVATION = auto()
+    DESTROYED = auto()
 
 class Battlegroup:
     def __init__(self, sr, size, points):
@@ -390,14 +397,14 @@ class GameController:
         self.p2_battlegroups = []
         self.player_phase = None
         self.bg_plan_screen = None
-        self.turn = 1
+        self.round = 1
         self.firstplayer = 0
         self.p1_button = None
         self.p2_button = None
         self.active_bg = None
         self.combatlog = None
         self.target_queue = None
-        self.round = 1
+        self.turn = 1
         # self.needs_update = True
         # self.activation_queue = Queue()
     
@@ -407,11 +414,11 @@ class GameController:
         gamephase_render_size = self.title_font.size(state_text)
         surf.blit(gamephase_render, ((surf.get_width()-gamephase_render_size[0])/2,0))
 
-        if 'Round' in self.current_state:
+        if 'Activate' in self.current_state:
             # don't draw end turn button
             self.rect = pygame.Rect(0,0,0,0)
         else:
-            endturn = 'End Turn'
+            endturn = 'Next Phase'
             endturnbutton_render = self.major_font.render(endturn, True, NordColors.snow0)
             endturnbutton_render_width = self.major_font.size(endturn)
             self.rect.left = (surf.get_width()-endturnbutton_render_width[0])/2
@@ -449,16 +456,21 @@ class GameController:
             surf.blit(p2_button_render,p2_button_loc)
     
     def next_phase(self, next_player=None):
-        if 'Cleanup' in self.current_state:
-            print('Battlegroup activations complete, perform round cleanup')
+        # if 'Cleanup' in self.current_state:
+        #     print('Battlegroup activations complete, perform turn cleanup')
 
-        elif self.current_state is 'Setup' or 'Roundup' in self.current_state:
+        if self.current_state == 'Setup':# or 'Roundup' in self.current_state:
             print(f'{self.current_state} phase complete, plan battlegroup activation order')
             self.current_state = 'Planning (P1)'
             self.bg_plan_screen = BattlegroupPlanner(self.p1_battlegroups, self.major_font, self.minor_font)
             for bg in self.p1_battlegroups+self.p2_battlegroups:
+                if bg.state is BattlegroupState.DESTROYED:
+                    continue
+                bg.state = BattlegroupState.NOT_YET_ACTIVE
                 for group in bg.groups:
                     for ship in group:
+                        if ship.state is ShipState.DESTROYED:
+                            continue
                         ship.state = ShipState.NOT_YET_ACTIVATED
 
         elif self.current_state == 'Planning (P1)':
@@ -467,19 +479,19 @@ class GameController:
             self.current_state = 'Planning (P2)'
 
         elif self.current_state == 'Planning (P2)' or 'Activate Battlegroup' in self.current_state:
-            print(f'activate first battlegroup in turn {self.turn}')
-            self.current_state = f'Round {self.round}: Select Player Order'
-            index = self.turn-1
+            print(f'activate first battlegroup in round {self.round}')
+            self.current_state = f'Turn {self.turn}: Select Player Order'
+            index = self.round-1
             print(f'checking battlegroups at index {index}')
             print(f'player 1 battlegroups contains {len(self.p1_battlegroups)} bgs')
             print(f'player 2 battlegroups contains {len(self.p2_battlegroups)} bgs')
 
             if index >= len(self.p1_battlegroups) and index >= len(self.p2_battlegroups):
-                print('all battlegroups activated, round cleanup')
-                self.combatlog.append('all battlegroups activated, round cleanup')
-                self.round = self.round + 1
-                self.turn = 1
-                self.current_state = f'Round {self.round}: Cleanup'
+                print('all battlegroups activated, turn roundup')
+                self.combatlog.append('all battlegroups activated, turn roundup')
+                self.current_state = f'Turn {self.turn}: Roundup (Ground Combat)'
+                self.turn = self.turn + 1
+                self.round = 1
 
             elif index < len(self.p1_battlegroups) and index < len(self.p2_battlegroups):
                 print('battlegroups left to activate')
@@ -501,24 +513,41 @@ class GameController:
                 print(f'p1 battlegroups all activated, continue activating player 2 battlegroups')
                 for bg in self.p2_battlegroups[index:]:
                     bg.state = BattlegroupState.PENDING_ACTIVATION
-                self.current_state = f'Round {self.round}: P2 Activate Battlegroup'
+                self.current_state = f'Turn {self.turn}: P2 Activate Battlegroup'
 
             elif index >= len(self.p2_battlegroups):
                 print(f'p2 battlegroups all activated, continue activating player 1 battlegroups')
                 for bg in self.p1_battlegroups[index:]:
                     bg.state = BattlegroupState.PENDING_ACTIVATION
-                self.current_state = f'Round {self.round}: P2 Activate Battlegroup'
+                self.current_state = f'Turn {self.turn}: P2 Activate Battlegroup'
             else:
                 print('how did you get here?')
+        
+        elif 'Ground Combat' in self.current_state:
+            print('resolve ground combat')
+            self.current_state = f'Turn {self.turn}: Roundup (Launch Assets)'
+        
+        elif 'Launch Assets' in self.current_state:
+            print('resolve launch assets')
+            self.current_state = f'Turn {self.turn}: Roundup (Damage Control)'
+
+        elif 'Damage Control' in self.current_state:
+            print('resolve damage control')
+            self.current_state = f'Turn {self.turn}: Roundup (Orbital Decay)'
+
+        elif 'Orbital Decay' in self.current_state:
+            print('distribute victory points')
+            self.current_state = 'Setup'
+            self.next_phase()
 
         elif 'Select Player Order' in self.current_state:
-            self.current_state = f'Round {self.round}: P{next_player} Activate Battlegroup'
+            self.current_state = f'Turn {self.turn}: P{next_player} Activate Battlegroup'
             if next_player == 1:
-                self.p2_battlegroups[self.turn-1].state = BattlegroupState.PENDING_ACTIVATION
-                self.active_bg = self.p1_battlegroups[self.turn-1]
+                self.p2_battlegroups[self.round-1].state = BattlegroupState.PENDING_ACTIVATION
+                self.active_bg = self.p1_battlegroups[self.round-1]
             else:
-                self.p1_battlegroups[self.turn-1].state = BattlegroupState.PENDING_ACTIVATION
-                self.active_bg = self.p2_battlegroups[self.turn-1]
+                self.p1_battlegroups[self.round-1].state = BattlegroupState.PENDING_ACTIVATION
+                self.active_bg = self.p2_battlegroups[self.round-1]
             self.active_bg.activate()
         return self.current_state
         # print(f'now on phase {self.current_state}')
@@ -537,39 +566,39 @@ class GameController:
                 
                 print('check if opposing battlegroup also activated')
                 try:
-                    p1_activated = self.p1_battlegroups[self.turn-1].state is BattlegroupState.ACTIVATED
+                    p1_activated = self.p1_battlegroups[self.round-1].state is BattlegroupState.ACTIVATED
                 except IndexError:
                     p1_activated = True
 
                 try:
-                    p2_activated = self.p2_battlegroups[self.turn-1].state is BattlegroupState.ACTIVATED
+                    p2_activated = self.p2_battlegroups[self.round-1].state is BattlegroupState.ACTIVATED
                 except IndexError:
                     p2_activated = True
 
                 if p1_activated and p2_activated:
-                    print('both active battlegroups activated, do next turn')
-                    self.turn = self.turn + 1
+                    print('both active battlegroups activated, do next round')
+                    self.round = self.round + 1
                     self.next_phase()
                     return
 
                 print('activate other pending battlegroup')
                 try:
-                    p1_pending = self.p1_battlegroups[self.turn-1].state is BattlegroupState.PENDING_ACTIVATION
+                    p1_pending = self.p1_battlegroups[self.round-1].state is BattlegroupState.PENDING_ACTIVATION
                 except IndexError:
                     p1_pending = False
                 try:
-                    p2_pending = self.p2_battlegroups[self.turn-1].state is BattlegroupState.PENDING_ACTIVATION
+                    p2_pending = self.p2_battlegroups[self.round-1].state is BattlegroupState.PENDING_ACTIVATION
                 except IndexError:
                     p2_pending = False
 
                 if p1_pending:
-                    self.active_bg = self.p1_battlegroups[self.turn-1]
+                    self.active_bg = self.p1_battlegroups[self.round-1]
                     next_player = 1
                 elif p2_pending:
-                    self.active_bg = self.p2_battlegroups[self.turn-1]
+                    self.active_bg = self.p2_battlegroups[self.round-1]
                     next_player = 2
 
-                self.current_state = f'Round {self.round}: P{next_player} Activate Battlegroup'
+                self.current_state = f'turn {self.turn}: P{next_player} Activate Battlegroup'
                 self.active_bg.state = BattlegroupState.ACTIVE
                 self.active_bg.activate()
     

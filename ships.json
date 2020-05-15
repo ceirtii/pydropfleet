@@ -274,5 +274,41 @@
     "pd": 3,
     "shiptype": "Escort Carrier",
     "tonnage": "light2"
+  },
+  {
+    "shipclass": "Hector",
+    "faction": "PHR",
+    "scan": 8,
+    "sig": 6,
+    "thrust": 7,
+    "hull": 13,
+    "armor": 3,
+    "pd": 5,
+    "shiptype": "Heavy Cruiser",
+    "tonnage": "heavy"
+  },
+  {
+    "shipclass": "Berlin",
+    "faction": "UCM",
+    "scan": 6,
+    "sig": 6,
+    "thrust": 8,
+    "hull": 10,
+    "armor": 3,
+    "pd": 5,
+    "shiptype": "Cruiser",
+    "tonnage": "medium"
+  },
+  {
+    "shipclass": "Toulon",
+    "faction": "UCM",
+    "scan": 6,
+    "sig": 3,
+    "thrust": 10,
+    "hull": 4,
+    "armor": 4,
+    "pd": 3,
+    "shiptype": "Frigate",
+    "tonnage": "light"
   }
 ]
