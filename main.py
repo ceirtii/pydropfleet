@@ -43,8 +43,8 @@ draggables.append(playarea)
 sprites.add(playarea)
 
 title_font = pygame.font.Font('kooten.ttf', 24)
-major_font = pygame.font.Font('kooten.ttf', 14)
-minor_font = pygame.font.Font('kooten.ttf', 12)
+major_font = pygame.font.Font('kooten.ttf', 18)
+minor_font = pygame.font.Font('kooten.ttf', 14)
 print('fonts loaded')
 
 print('initializing gamecontroller')
@@ -366,6 +366,7 @@ while True:
     #-----------------------------------------------------------------------------------
     # pygame.draw.rect(DISPLAYSURF,(255,255,255),rectangle)
     sprites.draw(DISPLAYSURF)
+    pygame.draw.rect(DISPLAYSURF, NordColors.snow0, playarea.rect, 2)
                     
     # infopanel.selectedship = None
     mousepos = pygame.mouse.get_pos()

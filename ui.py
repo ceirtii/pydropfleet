@@ -82,7 +82,13 @@ class CombatLog:
 
         line_pixel = 0
         for line in printloglines:
-            line_font_surface = self.line_font.render(str(line),True,self.font_color)
+            if 'destroyed' in line or 'damage' in line:
+                color = NordColors.aurora0
+            elif '->' in line:
+                color = NordColors.frost0
+            else:
+                color = self.font_color
+            line_font_surface = self.line_font.render(str(line), True, color)
             surf.blit(line_font_surface,(self.rect.x + line_height/2, self.rect.y + line_pixel + line_height/2))
             line_pixel += line_height
     
@@ -283,7 +289,7 @@ class InfoPanel:
             y = y + minor_height
 
             sig_str = f'Signature: {self.selectedship.active_sig}\" / {self.selectedship.sig}\"'
-            sig_render = self.minor_font.render(sig_str, True, NordColors.frost0)
+            sig_render = self.minor_font.render(sig_str, True, NordColors.snow0)
             surf.blit(sig_render, (self.rect.left+self.buffer,y))
             y = y + minor_height
 
@@ -570,6 +576,16 @@ class GameController:
 
         elif 'Damage Control' in self.current_state:
             print('resolve damage control')
+            fleets = [self.p1_battlegroups, self.p2_battlegroups]
+            for fleet in fleets:
+                for bg in fleet:
+                    for group in bg.groups:
+                        for ship in group:
+                            dc_results = ship.do_damage_control()
+                            if dc_results:
+                                self.combatlog.append(f'{ship} doing damage control')
+                                for line in dc_results:
+                                    self.combatlog.append(line)
             self.current_state = f'Turn {self.turn}: Roundup (Orbital Decay)'
 
         elif 'Orbital Decay' in self.current_state:
@@ -589,6 +605,7 @@ class GameController:
                 print('how did you get here?')
                 raise Exception
             self.active_bg.activate()
+            self.combatlog.append(f'activating {self.active_bg}')
         return self.current_state
         # print(f'now on phase {self.current_state}')
     
@@ -728,27 +745,31 @@ class GameController:
             out.append(f'Blazing Wreck: apply minor spike')
             for ship in ships_in_radius:
                 ship.apply_spike(1)
-        elif explode_roll == 4:
-            out.append(f'Shredded: 1 hit')
+        else:
+            if explode_roll == 4:
+                ex_hits = 1
+                ex_crits = 0
+                out.append(f'Shredded: 1 hit')
+
+            elif explode_roll == 5:
+                ex_hits = 2
+                ex_crits = 0
+                out.append(f'Explosion: 2 hit')
+                
+            elif explode_roll == 6:
+                ex_hits = 0
+                ex_crits = 2
+                out.append(f'Radiation Burst: 2 crits')
+                
+            elif explode_roll > 6:
+                ex_hits = 0
+                ex_crits = random.randint(1,6)
+                out.append(f'Distortion Bubble: {ex_crits} crits')
+
             for ship in ships_in_radius:
-                explosion_mitigation = ship.mitigate(1, 0)
-                out.append(explosion_mitigation)
-        elif explode_roll == 5:
-            out.append(f'Explosion: 2 hit')
-            for ship in ships_in_radius:
-                explosion_mitigation = ship.mitigate(2, 0)
-                out.append(explosion_mitigation)
-        elif explode_roll == 6:
-            out.append(f'Radiation Burst: 2 crits')
-            for ship in ships_in_radius:
-                explosion_mitigation = ship.mitigate(0, 2)
-                out.append(explosion_mitigation)
-        elif explode_roll > 6:
-            bubble_damage = random.randint(1,6)
-            out.append(f'Distortion Bubble: {bubble_damage} crits')
-            for ship in ships_in_radius:
-                explosion_mitigation = ship.mitigate(0, bubble_damage)
-                out.append(explosion_mitigation)
+                explosion_mitigation = ship.mitigate(ex_hits, ex_crits)
+                for line in explosion_mitigation:
+                    out.append(line)
         return out
 
 class TargetPanel:

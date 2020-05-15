@@ -92,12 +92,21 @@ class Ship(pygame.sprite.Sprite):
         self.battlegroup = None
         self.hover = False
         self.fired_guns = 0
-        self.crippled = False
         self.scanner_damage = 0
         if self.hull < 7:
             self.max_cohesion = 3
         else:
             self.max_cohesion = 6
+        
+        self.crippled = False
+        # crippled effects
+        self.fire = False
+        self.armor_cracked = False
+        self.weapons_offline = False
+        self.engines_disabled = False
+        self.scanners_offline = False
+        self.orbital_decay = False
+        self.energy_surge = False
 
     @staticmethod
     def load_shipDB():
@@ -376,6 +385,8 @@ class Ship(pygame.sprite.Sprite):
                 pass
             else:
                 armor = int(self.armor)
+            if self.armor_cracked:
+                armor = armor + 2
             for roll in armor_rolls:
                 if hits == 0:
                     break
@@ -395,23 +406,27 @@ class Ship(pygame.sprite.Sprite):
 
         # check for crippling damage
         if not self.crippled:
-            if self.hp <= self.hull/2:
+            reactor_overload = True
+            while self.hp <= self.hull/2 and reactor_overload:
+                reactor_overload = False
                 out.append('rolling for crippling damage')
                 self.crippled = True
                 location = random.choice(['subsystems', 'hull', 'core systems'])
                 if location == 'subsystems':
                     damage = random.choice(['flash', 'fire', 'energy surge'])
                     if damage == 'flash':
-                        self.active_sig = self.active_sig + 6
+                        self.apply_spike(1)
                     elif damage == 'fire':
-                        print('fire!')
+                        self.fire = True
                     else:
                         self.hp = self.hp - 2
                         self.orbital_decay = True
+                        self.energy_surge = True
                 elif location == 'hull':
                     damage = random.choice(['scanners offline', 'armor cracked', 'hull breach'])
                     if damage == 'scanners offline':
                         self.scanners_offline = True
+                        self.scan = 1
                     elif damage == 'armor cracked':
                         self.armor_cracked = True
                         self.hp = self.hp - 2
@@ -423,6 +438,7 @@ class Ship(pygame.sprite.Sprite):
                     if damage == 'engines disabled':
                         self.hp = self.hp - 2
                         self.engines_disabled = True
+                        self.thrust = self.thrust / 2
                         self.orbital_decay = True
                     elif damage == 'weapons offline':
                         self.hp = self.hp - 3
@@ -430,30 +446,36 @@ class Ship(pygame.sprite.Sprite):
                     else:
                         self.hp = self.hp - 3
                         self.orbital_decay = True
+                        reactor_overload = True
+                        out.append('rolling again due to reactor overload')
                 out.append(f'ship crippled effect: {damage}')
         
         # check ded
         if self.hp < 1 and self.state is not ShipState.DESTROYED:
-            out.append(f'ship destroyed! rolling catastrophic damage:')
+            out.append(f'ship destroyed!')
             self.hp = 0
             self.state = ShipState.DESTROYED
             self.battlegroup.update_sr()
 
             # do catastrophic damage
-            explode_roll = random.randint(1,6)
-            
-            if self.hull < 7:
-                explode_radius = random.randint(1,3)
+            if self.hull < 4:
+                out.append('ship too small for catastrophic damage')
             else:
-                explode_radius = random.randint(1,6)
+                out.append('rolling for catastrophic damage')
+                explode_roll = random.randint(1,6)
+                
+                if self.hull < 7:
+                    explode_radius = random.randint(1,3)
+                else:
+                    explode_radius = random.randint(1,6)
 
-            if self.hull >= 10:
-                explode_roll = explode_roll + 1
+                if self.hull >= 10:
+                    explode_roll = explode_roll + 1
 
-            out.append(f'rolled {explode_roll}, radius {explode_radius}')
-            cata_damage = self.gamecontroller.do_catastrophic_damage(self, explode_roll, explode_radius)
-            for line in cata_damage:
-                out.append(line)
+                out.append(f'rolled {explode_roll}, radius {explode_radius}')
+                cata_damage = self.gamecontroller.do_catastrophic_damage(self, explode_roll, explode_radius)
+                for line in cata_damage:
+                    out.append(line)
             
             self.loc = (-1000, -1000)
             self.rect = pygame.Rect(0,0,0,0)
@@ -481,6 +503,59 @@ class Ship(pygame.sprite.Sprite):
         pygame.draw.rect(surf, NordColors.nord1, tt_rect)
         x, y = mousepos
         surf.blit(tt_render, (x, y - tt_rect.height))
+    
+    def do_damage_control(self):
+        out = []
+        if self.fire:
+            out.append('Fighting fires')
+            result = random.randint(1,6)
+            if result == 1:
+                out.append('Damage control critical failure')
+                self.hp = self.hp - 1
+            elif result <= 3:
+                out.append('Damage control failed')
+            else:
+                out.append('Fires mitigated')
+                self.fire = False
+
+        if self.energy_surge:
+            out.append('Controlling energy surges')
+            result = random.randint(1,6)
+            if result == 1:
+                out.append('Damage control critical failure')
+                self.hp = self.hp - 1
+            elif result <= 3:
+                out.append('Damage control failed')
+            else:
+                out.append('Energy surges stopped')
+                self.energy_surge = False
+
+        if self.scanners_offline:
+            out.append('Repairing scanners')
+            result = random.randint(1,6)
+            if result == 1:
+                out.append('Damage control critical failure')
+                self.hp = self.hp - 1
+            elif result <= 3:
+                out.append('Damage control failed')
+            else:
+                out.append('Scanners repaired')
+                self.scanners_offline = False
+                self.scan = Ship.shipDB[self.shipclass]['scan']
+
+        if self.engines_disabled:
+            out.append('Repairing engines')
+            result = random.randint(1,6)
+            if result == 1:
+                out.append('Damage control critical failure')
+                self.hp = self.hp - 1
+            elif result <= 3:
+                out.append('Damage control failed')
+            else:
+                out.append('Engines repaired')
+                self.engines_disabled = False
+                self.thrust = Ship.shipDB[self.shipclass]['thrust']
+        return out
 
 class ShipOrder(Enum):
     STANDARD = auto()
