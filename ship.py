@@ -11,6 +11,7 @@ class Ship(pygame.sprite.Sprite):
     shipgunsDB = dict()
     shiplaunchDB = dict()
     ship_counter = 1
+    ship_tonnage = {'light': 1, 'medium': 5, 'heavy': 10, 'super heavy': 15, 'light2': 2}
 
     def __init__(self, playarea, shipclass, loc=(-1,-1), name=None, imagepath='blueship.png'):
         pygame.sprite.Sprite.__init__(self)
@@ -27,10 +28,11 @@ class Ship(pygame.sprite.Sprite):
         self.pd = Ship.shipDB[shipclass]['pd']
         self.shiptype = Ship.shipDB[shipclass]['shiptype']
         self.tonnage = Ship.shipDB[shipclass]['tonnage']
-        self.guns = []
         self.linked_guns = dict()
         self.player = None
         self.active_sig = self.sig
+
+        self.guns = []
         for gun in Ship.shipgunsDB[self.shipclass]:
             # print(gun)
             gun_obj = Weapon(self, gun['guntype'], gun['arc'])
@@ -50,6 +52,16 @@ class Ship(pygame.sprite.Sprite):
             if 'count' in gun:
                 gun_obj.count = int(gun['count'])
             self.guns.append(gun_obj)
+        
+        self.launch = []
+        try:
+            Ship.shiplaunchDB[self.shipclass]
+        except KeyError:
+            print('ship does not have launch assets')
+        else:
+            for launch in Ship.shiplaunchDB[self.shipclass]:
+                launch_asset = LaunchAsset(self.faction, launch['launchtype'], launch['count'])
+                self.launch.append(launch_asset)
 
         self.image0 = pygame.image.load(imagepath).convert_alpha()
         self.scale = .05
@@ -76,11 +88,16 @@ class Ship(pygame.sprite.Sprite):
         self.maxthrust = self.thrust
         self.highlight = False
         self.state = ShipState.SETUP
-        self.group = None
+        self.group = []
+        self.battlegroup = None
         self.hover = False
         self.fired_guns = 0
         self.crippled = False
         self.scanner_damage = 0
+        if self.hull < 7:
+            self.max_cohesion = 3
+        else:
+            self.max_cohesion = 6
 
     @staticmethod
     def load_shipDB():
@@ -195,12 +212,14 @@ class Ship(pygame.sprite.Sprite):
             self.state = ShipState.DESTROYED
             self.loc = (-1000,-1000)
             self.rect = pygame.Rect(0,0,0,0)
+            self.battlegroup.update_sr()
 
         if self.state is ShipState.FIRING:
             print('checking if ship can fire guns')
             # no_target_available = False
             fired_guns = 0
             pending_linked_guns = []
+            close_action_fired = False
             if self.order is ShipOrder.STANDARD:
                 max_fired_guns = 1
             else:
@@ -214,12 +233,18 @@ class Ship(pygame.sprite.Sprite):
                     fired_guns = fired_guns + 1
                     print('fired gun found, check if linked gun is valid')
                     if gun.close_action:
-                        print('close action gun')
+                        print('close action gun fired')
+                        close_action_fired = True
                         fired_guns = fired_guns - 1
                     elif gun.linked_gun:
                         print('found linked gun')
-                        pending_linked_guns.append(gun)
-                        pending_linked_guns.append(gun.linked_gun)
+                        if gun in pending_linked_guns:
+                            print('gun already checked through link')
+                            fired_guns = fired_guns - 1
+                        else:
+                            print('new group of linked guns')
+                            pending_linked_guns.append(gun)
+                            pending_linked_guns.append(gun.linked_gun)
 
                         if gun.linked_gun.state is GunState.FIRED:
                             print('linked gun has fired')
@@ -242,7 +267,7 @@ class Ship(pygame.sprite.Sprite):
                     # break
                 elif gun.state is GunState.TARGETING and gun.close_action:
                     print('close action gun not yet fired and has valid targets')
-                    fired_guns = fired_guns - 1
+                    # fired_guns = fired_guns - 1
             # check linked guns
             print(f'{fired_guns} guns fired, max of {max_fired_guns}')
 
@@ -254,11 +279,13 @@ class Ship(pygame.sprite.Sprite):
                         gun.state = GunState.INACTIVE
 
             # after each gun checked, see if crossed max fired guns threshold
-            if fired_guns >= max_fired_guns:
-                print('max fired guns reached')
+            if fired_guns == max_fired_guns:
+                print('max regular fired guns reached')
                 for gun in self.guns:
-                    gun.state = GunState.INACTIVE
-                self.state = ShipState.ACTIVATED
+                    if not gun.close_action:
+                        gun.state = GunState.INACTIVE
+                if close_action_fired:
+                    self.finish_activation()
                 # break
             
             # else:
@@ -267,7 +294,7 @@ class Ship(pygame.sprite.Sprite):
                 all_guns_inactive = all_guns_inactive and gun.state in [GunState.FIRED, GunState.INACTIVE]
             if all_guns_inactive:
                 print('all guns inactive')
-                self.state = ShipState.ACTIVATED
+                self.finish_activation()
 
                 # if no_target_available:
                 #     print('no target available, activating all guns')
@@ -279,7 +306,32 @@ class Ship(pygame.sprite.Sprite):
         else:
             self.fired_guns = 0
     
-    def mitigate(self, hits, crits, close_action=False):
+    def finish_activation(self):
+        print('finish ship activation')
+        self.state = ShipState.ACTIVATED
+        if self.order is ShipOrder.STANDARD:
+            if self.active_sig > self.sig:
+                print('standard order, removing minor spike')
+                self.remove_spike(1)
+        if self.order is ShipOrder.WEAPONSFREE:
+            print('weapons free, adding major spike')
+            self.apply_spike(2)
+    
+    def apply_spike(self, amount):
+        for i in range(amount):
+            self.active_sig = self.active_sig + 6
+
+        if self.active_sig > self.sig + 12:
+            self.active_sig = self.sig + 12
+    
+    def remove_spike(self, amount):
+        for i in range(amount):
+            self.active_sig = self.active_sig - 6
+
+        if self.active_sig < self.sig:
+            self.active_sig = self.sig
+    
+    def mitigate(self, hits, crits, close_action=False, flash=False):
         out = []
         if close_action:
             out.append(f'defending against close action, applying pd {self.pd}')
@@ -331,28 +383,36 @@ class Ship(pygame.sprite.Sprite):
                     mitigated_hits = mitigated_hits + 1
                     hits = hits - 1
             out.append(f'damage mitigated: {mitigated_hits}')
+
+            # apply flash
+            if flash:
+                self.apply_spike(1)
+            elif hits + crits >= 3:
+                self.apply_spike(1)
+
         self.hp = self.hp - hits - crits
         out.append(f'damage dealt: {hits + crits}')
+
         # check for crippling damage
         if not self.crippled:
             if self.hp <= self.hull/2:
                 out.append('rolling for crippling damage')
                 self.crippled = True
                 location = random.choice(['subsystems', 'hull', 'core systems'])
-                if location is 'subsystems':
+                if location == 'subsystems':
                     damage = random.choice(['flash', 'fire', 'energy surge'])
-                    if damage is 'flash':
+                    if damage == 'flash':
                         self.active_sig = self.active_sig + 6
-                    elif damage is 'fire':
+                    elif damage == 'fire':
                         print('fire!')
                     else:
                         self.hp = self.hp - 2
                         self.orbital_decay = True
-                elif location is 'hull':
+                elif location == 'hull':
                     damage = random.choice(['scanners offline', 'armor cracked', 'hull breach'])
-                    if damage is 'scanners offline':
+                    if damage == 'scanners offline':
                         self.scanners_offline = True
-                    elif damage is 'armor cracked':
+                    elif damage == 'armor cracked':
                         self.armor_cracked = True
                         self.hp = self.hp - 2
                     else:
@@ -360,11 +420,11 @@ class Ship(pygame.sprite.Sprite):
                         self.orbital_decay = True
                 else:
                     damage = random.choice(['engines disabled', 'weapons offline', 'reactor overload'])
-                    if damage is 'engines disabled':
+                    if damage == 'engines disabled':
                         self.hp = self.hp - 2
                         self.engines_disabled = True
                         self.orbital_decay = True
-                    elif damage is 'weapons offline':
+                    elif damage == 'weapons offline':
                         self.hp = self.hp - 3
                         self.weapons_offline = True
                     else:
@@ -372,6 +432,28 @@ class Ship(pygame.sprite.Sprite):
                         self.orbital_decay = True
                 out.append(f'ship crippled effect: {damage}')
         return out
+    
+    def draw_cohesion(self, surf):
+        for neighbor_ship in self.group:
+            if neighbor_ship is self:
+                continue
+            x0, y0 = self.rect.center
+            x1, y1 = neighbor_ship.rect.center
+            cohesion = self.playarea.scale_pixel_to_grid(math.dist([x0, y0], [x1, y1]))
+            if cohesion < self.max_cohesion:
+                line_color = NordColors.aurora3
+            else:
+                line_color = NordColors.aurora0
+            pygame.draw.line(surf, line_color, neighbor_ship.rect.center, self.rect.center)
+    
+    def draw_tooltip(self, surf, mousepos, font):
+        tt_str = f'sca={self.scan}/sig={self.active_sig}/thr={self.thrust}/arm={self.armor}/pd={self.pd}'
+        tt_render = font.render(tt_str, True, NordColors.snow0)
+        tt_rect = tt_render.get_rect()
+        tt_rect.bottomleft = mousepos
+        pygame.draw.rect(surf, NordColors.nord1, tt_rect)
+        x, y = mousepos
+        surf.blit(tt_render, (x, y - tt_rect.height))
 
 class ShipOrder(Enum):
     STANDARD = auto()

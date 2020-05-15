@@ -95,13 +95,16 @@ gamecontroller.p2_battlegroups = p2_fleetpanel.battlegroups
 
 selectedship = None
 hoveredship = None
-show_cohesion = False
+show_cohesion = True
 show_signature = False
+show_tooltip = True
 dragging = False
 targeting_ship = None
 # selected_gun = None
 # firing_queue = []
 playwindow = pygame.Rect(DISPLAYSURF.get_width()*.2,0,DISPLAYSURF.get_width()*.6,DISPLAYSURF.get_height()*.7)
+
+selection_color = NordColors.frost1
 
 while True:
 
@@ -315,22 +318,31 @@ while True:
                 elif infopanel.selectedship:
                     infopanel.selectedship.highlight = False
                     infopanel.selectedship = None
+
             if event.key == pygame.K_a:
                 for ship in ships:
                     if ship.rect.collidepoint(pygame.mouse.get_pos()):
                         ship.hp = ship.hp - 1
+
             if event.key == pygame.K_c:
+                print('toggle cohesion display')
                 show_cohesion = not show_cohesion
+
             if event.key == pygame.K_s:
                 show_signature = not show_signature
+
             if event.key == pygame.K_q:
                 if selectedship and selectedship.state is ShipState.SETUP:
                     selectedship.bearing = selectedship.bearing + 45
                     print(f'new bearing {selectedship.bearing}')
+
             if event.key == pygame.K_e:
                 if selectedship and selectedship.state is ShipState.SETUP:
                     selectedship.bearing = selectedship.bearing - 45
                     print(f'new bearing {selectedship.bearing}')
+
+            if event.key == pygame.K_t:
+                show_tooltip = not show_tooltip
 
     player1.update()
     player2.update()
@@ -371,9 +383,7 @@ while True:
                 pt2 = ship.rect.center
                 pygame.draw.line(DISPLAYSURF, NordColors.frost0,pt1,pt2)
         else:
-            if targetpanel.gun.ship is not infopanel.selectedship:
-                targetpanel.active = False
-            elif targetpanel.rect.collidepoint(mousepos):
+            if targetpanel.rect.collidepoint(mousepos):
                 for index, rect in enumerate(targetpanel.target_rect_list):
                     if rect.collidepoint(mousepos):
                         targeted_ship = targetpanel.target_list[index]
@@ -382,6 +392,8 @@ while True:
                         pygame.draw.line(DISPLAYSURF, NordColors.frost0,pt1,pt2)
     
     if infopanel.selectedship:
+        if show_cohesion:
+            infopanel.selectedship.draw_cohesion(DISPLAYSURF)
         if infopanel.selected_gun and infopanel.selected_gun.ship is not infopanel.selectedship:
             infopanel.selected_gun = None
         pygame.draw.rect(DISPLAYSURF, NordColors.frost1, infopanel.selectedship.rect, 1)
@@ -391,6 +403,10 @@ while True:
             check_ships = player1.ships
         for gun in infopanel.selectedship.guns:
             targetable_ships = gun.get_targetable_ships(check_ships,playarea)
+    
+    if targetpanel.active:
+        if targetpanel.gun.ship is not infopanel.selectedship:
+            targetpanel.active = False
 
     # hoveredship_drawn = False
     for ship in player1.ships + player2.ships:
@@ -411,24 +427,41 @@ while True:
             else:
                 sig_color = NordColors.aurora4
             x, y = ship.rect.center
-            sig = playarea.scalegridtopixel(ship.sig)
+            sig = playarea.scalegridtopixel(ship.active_sig)
             alpha = (128,)
             pygame.gfxdraw.filled_circle(DISPLAYSURF,x,y,sig,sig_color+alpha)
 
         if ship.panel_rect.collidepoint(mousepos) or ship.rect.collidepoint(mousepos):
+            if show_tooltip and ship.rect.collidepoint(mousepos):
+                ship.draw_tooltip(DISPLAYSURF, mousepos, minor_font)
             # hoveredship_drawn = True
             ship.hover = True
             pygame.draw.rect(DISPLAYSURF, NordColors.frost2, ship.rect, 1)
-        #     hoveredship = ship
-        #     if show_cohesion:
-        #         for neighbor_ship in ship.group:
-        #             if neighbor_ship is ship:
-        #                 continue
-        #             pygame.draw.line(DISPLAYSURF, NordColors.aurora3, neighbor_ship.rect.center, ship.rect.center)
+            # hoveredship = ship
+            if show_cohesion:
+                ship.draw_cohesion(DISPLAYSURF)
                 # print(f'ship hovered: {ship}')
         
         ship.update()
 
+    # show sectors
+    if selectedship and selectedship.is_selected:
+        print('drawing arcs')
+        segments = [11.25,33.75,90,90,90,33.75]
+        draw_dist = playarea.scalegridtopixel(selectedship.scan)
+        if selectedship.selection_bearing:
+            angle = selectedship.selection_bearing
+        else:
+            angle = selectedship.bearing
+        x0, y0 = selectedship.rect.center
+        for arc in segments:
+            angle = angle + arc
+            x1 = x0 - draw_dist * math.sin(math.radians(angle))
+            y1 = y0 - draw_dist * math.cos(math.radians(angle))
+            pygame.draw.line(DISPLAYSURF, selection_color, (x0,y0), (x1,y1))
+        pygame.draw.circle(DISPLAYSURF, selection_color, (x0,y0), draw_dist, 1)
+
+    # just move the ship
     if selectedship and selectedship.state is ShipState.SETUP and selectedship.is_selected:
         # center = (selectoffset_x + mousepos[0], selectoffset_y + mousepos[1])
         center = mousepos
@@ -441,6 +474,7 @@ while True:
 
         selectedship.selection_bearing = selectedship.bearing
 
+    # move the ship and limit movement to thrust and max turn
     if selectedship and selectedship.state is ShipState.MOVING and selectedship.is_selected:
         # center = (selectoffset_x + mousepos[0], selectoffset_y + mousepos[1])
         center = mousepos

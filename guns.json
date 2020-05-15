@@ -4,7 +4,8 @@
     "lock": "3",
     "attack": "2",
     "damage": "1",
-    "burnthrough": 6
+    "burnthrough": 6,
+    "flash": true
   },
   {
     "guntype": "UF-4200 Mass Driver Turret",
@@ -23,7 +24,8 @@
     "lock": "3",
     "attack": "2",
     "damage": "1",
-    "burnthrough": 6
+    "burnthrough": 6,
+    "flash": true
   },
   {
     "guntype": "Swordfish Missile Bays",
@@ -43,7 +45,8 @@
     "guntype": "UF-B-8000 Bombardment Turret",
     "lock": "2",
     "attack": "1",
-    "damage": "1"
+    "damage": "1",
+    "bombardment": true
   },
   {
     "guntype": "Mosquito Drones",
@@ -57,7 +60,8 @@
     "lock": "3",
     "attack": "1",
     "damage": "1",
-    "burnthrough": 3
+    "burnthrough": 3,
+    "flash": true
   },
   {
     "guntype": "Light Calibre Broadside",
@@ -77,7 +81,8 @@
     "guntype": "Bombardment Turret",
     "lock": "4",
     "attack": "2",
-    "damage": "1"
+    "damage": "1",
+    "bombardment": true
   },
   {
     "guntype": "Medium Calibre Broadside",

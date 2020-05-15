@@ -40,6 +40,9 @@ class PlayArea(pygame.sprite.Sprite):
     
     def scalegridtopixel(self, dist):
         return int(dist/self.dim[0]*self.rect.width)
+    
+    def scale_pixel_to_grid(self, dist):
+        return dist/self.rect.width*self.dim[0]
 
 class CombatLog:
     def __init__(self, font_obj, width_frac=.3):
@@ -140,6 +143,8 @@ class FleetPanel:
                 bg_color = NordColors.frost2
             elif bg.state is BattlegroupState.NOT_YET_ACTIVE:
                 bg_color = NordColors.snow0
+            elif bg.state is BattlegroupState.DESTROYED:
+                bg_color = NordColors.aurora0
             else:
                 raise Exception
             font_render = self.line_font.render(str(bg),True,bg_color)
@@ -270,6 +275,17 @@ class InfoPanel:
                     pygame.draw.rect(surf, NordColors.frost1, gun.rect, 1)
                     # print(f'{gun.guntype} hovered')
                 y = y + minor_height
+            y = y + minor_height/2
+
+            shiporder_str = f'Orders: {self.selectedship.order.name}'
+            shiporder_render = self.minor_font.render(shiporder_str, True, NordColors.frost0)
+            surf.blit(shiporder_render, (self.rect.left+self.buffer,y))
+            y = y + minor_height
+
+            sig_str = f'Signature: {self.selectedship.active_sig}\" / {self.selectedship.sig}\"'
+            sig_render = self.minor_font.render(sig_str, True, NordColors.frost0)
+            surf.blit(sig_render, (self.rect.left+self.buffer,y))
+            y = y + minor_height
 
     def scroll(self, dir):
         pass
@@ -286,15 +302,16 @@ class BattlegroupState(Enum):
     DESTROYED = auto()
 
 class Battlegroup:
-    def __init__(self, sr, size, points):
+    def __init__(self, size, points):
         self.size = size
-        self.sr = int(sr)
+        # self.sr = int(sr)
         self.points = points
         self.groups = []
         self.state = BattlegroupState.NOT_YET_ACTIVE
         self.hovered = False
         self.up_arrow_rect = None
         self.down_arrow_rect = None
+        # self.update_sr()
 
     def __str__(self):
         out_str = f'SR{self.sr} {self.size} {self.points} pts'
@@ -320,12 +337,23 @@ class Battlegroup:
             self.state = BattlegroupState.ACTIVATED
     
     def activate(self):
+        self.state = BattlegroupState.ACTIVE
         for group in self.groups:
             for ship in group:
                 if ship.state is not ShipState.DESTROYED:
                     ship.state = ShipState.MOVING
                     for gun in ship.guns:
                         gun.state = GunState.TARGETING
+    
+    def update_sr(self):
+        sr = 0
+        for group in self.groups:
+            for ship in group:
+                if ship.state is not ShipState.DESTROYED:
+                    tonnage = Ship.ship_tonnage[ship.tonnage]
+                    sr = sr + tonnage
+        self.sr = sr
+        return sr
     
 class ShipGroup:
     def __init__(self):
@@ -462,16 +490,24 @@ class GameController:
         if self.current_state == 'Setup':# or 'Roundup' in self.current_state:
             print(f'{self.current_state} phase complete, plan battlegroup activation order')
             self.current_state = 'Planning (P1)'
+            for fleetlist in [self.p1_battlegroups, self.p2_battlegroups]:
+                print(f'resetting ships for {fleetlist}')
+                index = 0
+                while index < len(fleetlist):
+                    print(f'checking battlegroup at index {index}')
+                    bg = fleetlist[index]
+                    if bg.state is BattlegroupState.DESTROYED:
+                        print('removing destroyed battlegroup')
+                        fleetlist.remove(bg)
+                    else:
+                        bg.state = BattlegroupState.NOT_YET_ACTIVE
+                        for group in bg.groups:
+                            for ship in group:
+                                if ship.state is ShipState.DESTROYED:
+                                    continue
+                                ship.state = ShipState.NOT_YET_ACTIVATED
+                        index = index + 1
             self.bg_plan_screen = BattlegroupPlanner(self.p1_battlegroups, self.major_font, self.minor_font)
-            for bg in self.p1_battlegroups+self.p2_battlegroups:
-                if bg.state is BattlegroupState.DESTROYED:
-                    continue
-                bg.state = BattlegroupState.NOT_YET_ACTIVE
-                for group in bg.groups:
-                    for ship in group:
-                        if ship.state is ShipState.DESTROYED:
-                            continue
-                        ship.state = ShipState.NOT_YET_ACTIVATED
 
         elif self.current_state == 'Planning (P1)':
             print(f'player 1 finished planning, player 2 plan battlegroup activation order')
@@ -522,6 +558,7 @@ class GameController:
                 self.current_state = f'Turn {self.turn}: P2 Activate Battlegroup'
             else:
                 print('how did you get here?')
+                raise Exception
         
         elif 'Ground Combat' in self.current_state:
             print('resolve ground combat')
@@ -545,14 +582,35 @@ class GameController:
             if next_player == 1:
                 self.p2_battlegroups[self.round-1].state = BattlegroupState.PENDING_ACTIVATION
                 self.active_bg = self.p1_battlegroups[self.round-1]
-            else:
+            elif next_player == 2:
                 self.p1_battlegroups[self.round-1].state = BattlegroupState.PENDING_ACTIVATION
                 self.active_bg = self.p2_battlegroups[self.round-1]
+            else:
+                print('how did you get here?')
+                raise Exception
             self.active_bg.activate()
         return self.current_state
         # print(f'now on phase {self.current_state}')
     
     def update(self):
+        for bg in self.p1_battlegroups + self.p2_battlegroups:
+            print(f'checking battlegroup {bg}')
+            all_ships_destroyed = True
+            for group in bg.groups:
+                for ship in group:
+                    all_ships_destroyed = ship.state is ShipState.DESTROYED and all_ships_destroyed
+            if all_ships_destroyed:
+                print(f'all ships destroyed in {bg}, setting as destroyed')
+                bg.state = BattlegroupState.DESTROYED
+                # try:
+                #     self.p1_battlegroups.remove(bg)
+                # except Exception:
+                #     pass
+                # try:
+                #     self.p2_battlegroups.remove(bg)
+                # except Exception:
+                #     pass
+                
         if 'Activate' in self.current_state:
             self.active_bg.update()
             if self.active_bg.state is BattlegroupState.ACTIVATED:
@@ -566,11 +624,19 @@ class GameController:
                 
                 print('check if opposing battlegroup also activated')
                 try:
+                    # while self.p1_battlegroups[self.round-1].state is BattlegroupState.DESTROYED:# and self.p1_battlegroups[self.round]:
+                    #     print(f'removing destroyed battlegroup {self.p1_battlegroups[self.round-1]}')
+                    #     self.p1_battlegroups.pop(self.round-1)
+                        # self.p1_battlegroups[self.round-1].state = BattlegroupState.PENDING_ACTIVATION
                     p1_activated = self.p1_battlegroups[self.round-1].state is BattlegroupState.ACTIVATED
                 except IndexError:
                     p1_activated = True
 
                 try:
+                    # while self.p2_battlegroups[self.round-1].state is BattlegroupState.DESTROYED:# and self.p2_battlegroups[self.round]:
+                    #     print(f'removing destroyed battlegroup {self.p2_battlegroups[self.round-1]}')
+                    #     self.p2_battlegroups.pop(self.round-1)
+                        # self.p2_battlegroups[self.round-1].state = BattlegroupState.PENDING_ACTIVATION
                     p2_activated = self.p2_battlegroups[self.round-1].state is BattlegroupState.ACTIVATED
                 except IndexError:
                     p2_activated = True
@@ -583,23 +649,40 @@ class GameController:
 
                 print('activate other pending battlegroup')
                 try:
+                    while self.p1_battlegroups[self.round-1].state is BattlegroupState.DESTROYED:
+                        print(f'removing destroyed battlegroup {self.p1_battlegroups[self.round-1]}')
+                        self.p1_battlegroups.pop(self.round-1)
+                        # self.p1_battlegroups[self.round-1].state = BattlegroupState.PENDING_ACTIVATION
                     p1_pending = self.p1_battlegroups[self.round-1].state is BattlegroupState.PENDING_ACTIVATION
+                    p1_pending = p1_pending or self.p1_battlegroups[self.round-1].state is BattlegroupState.NOT_YET_ACTIVE
                 except IndexError:
                     p1_pending = False
                 try:
+                    while self.p2_battlegroups[self.round-1].state is BattlegroupState.DESTROYED:
+                        print(f'removing destroyed battlegroup {self.p2_battlegroups[self.round-1]}')
+                        self.p2_battlegroups.pop(self.round-1)
+                        # self.p2_battlegroups[self.round-1].state = BattlegroupState.PENDING_ACTIVATION
                     p2_pending = self.p2_battlegroups[self.round-1].state is BattlegroupState.PENDING_ACTIVATION
+                    p2_pending = p2_pending or self.p2_battlegroups[self.round-1].state is BattlegroupState.NOT_YET_ACTIVE
                 except IndexError:
                     p2_pending = False
 
+                print(f'p1_pending={p1_pending}, p2_pending={p2_pending}')
                 if p1_pending:
+                    print(f'player 1 has pending battlegroup {self.p1_battlegroups[self.round-1]}')
                     self.active_bg = self.p1_battlegroups[self.round-1]
                     next_player = 1
                 elif p2_pending:
+                    print(f'player 2 has pending battlegroup {self.p2_battlegroups[self.round-1]}')
                     self.active_bg = self.p2_battlegroups[self.round-1]
                     next_player = 2
+                else:
+                    print("no pending battlegroups, do next round")
+                    self.round = self.round + 1
+                    self.next_phase()
+                    return
 
                 self.current_state = f'turn {self.turn}: P{next_player} Activate Battlegroup'
-                self.active_bg.state = BattlegroupState.ACTIVE
                 self.active_bg.activate()
     
     def ship_selectable(self):
@@ -659,7 +742,7 @@ class Player:
         for line in fleetfile_lines:
             if line.startswith('SR'):
                 vals = line.split()
-                currentBG = Battlegroup(vals[0][2:], vals[1], vals[3][1:-4])
+                currentBG = Battlegroup(vals[1], vals[3][1:-4])
                 self.battlegroups.append(currentBG)
             elif line[0].isdigit():
                 vals = line.split()
@@ -676,6 +759,7 @@ class Player:
                         image = 'redship.png'
                     newship = Ship(self.playarea,shipclass=vals[2], imagepath=image)
                     newship.player = self
+                    newship.battlegroup = currentBG
                     newship.group = group
                     self.ships.append(newship)
                     # draggables.append(newship)
@@ -683,6 +767,8 @@ class Player:
                     # self.ships.append(newship)
                     group.append(newship)
                 currentBG.groups.append(group)
+        for bg in self.battlegroups:
+            bg.update_sr()
         return self.battlegroups
     
     def update(self):

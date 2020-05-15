@@ -66,7 +66,11 @@ class Weapon:
             self.close_action = Weapon.gunDB[guntype]['close_action']
         except KeyError:
             self.close_action = False
-        self.targetable_ships = None        
+        self.targetable_ships = None
+        try:
+            self.flash = Weapon.gunDB[guntype]['flash']
+        except KeyError:
+            self.flash = False
 
     @staticmethod
     def load_gunDB():
@@ -94,6 +98,8 @@ class Weapon:
         if self.linked != 0:
             out_str = out_str + f'({self.linked})'
         out_str = out_str + f' lock:{self.lock}, att:{self.attack}, dam:{self.damage} arc:{self.arc_str}'
+        if self.burnthrough:
+            out_str = out_str + f', burn:{self.burnthrough}'
         return out_str
     
     def to_dict(self):
@@ -177,57 +183,78 @@ class Weapon:
     def shoot(self, ship):
         result = []
         result.append(f'{self.guntype} on {str(self.ship)} -> {str(ship)}')
-        if 'd' in self.attack.lower():
-            result.append(f'variable attack {self.attack}')
-            attack_cond = self.attack.strip('d')
-            dice_faces, addition = map(int,attack_cond.split('+'))
-            attack_rolls = [random.randint(1,6) for i in range(random.randint(1,dice_faces)+addition)]
-        else:
-            attack_rolls = [random.randint(1,6) for i in range(int(self.attack)*self.count)]
-        attack_str = ', '.join(map(str,attack_rolls))
-        result.append(f'attack rolls: {attack_str}')
-        # index = 0
-        # while index < len(attack_rolls):
-        #     if attack_rolls[index] < self.lock:
-        #         attack_rolls.pop(index)
-        #     else:
-        #         index = index + 1
-        # attack_str = ', '.join(map(str,attack_rolls))
-        # result.append(f'successful hits: {attack_str}')
         hits = 0
         crits = 0
-        if 'd' in str(self.lock).lower():
-            pass
-        else:
+        if self.burnthrough:
+            result.append('firing burnthrough weapon')
+            burn_rolls = []
             lock = int(self.lock)
-        if self.calibre:
-            print(f'gun has calibre {self.calibre}, testing ship tonnage')
-            if self.calibre in ship.tonnage:
-                print('calibre matches target ship tonnage')
-                lock = lock - 1
-                result.append(f'gun calibre {self.calibre} matches ship tonnage {ship.tonnage}')
-        if 'd' in str(self.damage).lower():
-            pass
-        else:
             damage = int(self.damage)
-        for val in attack_rolls:
-            if val >= lock + 2:
-                crits = crits + damage
-            elif val >= lock:
-                hits = hits + damage
+            for i in range(int(self.attack)):
+                while hits + crits < self.burnthrough:
+                    roll = random.randint(1,6)
+                    burn_rolls.append(roll)
+                    if roll >= lock + 2:
+                        crits = crits + damage
+                    elif roll >= lock:
+                        hits = hits + damage
+                    else:
+                        break
+            burn_str = ', '.join(map(str,burn_rolls))
+            result.append(f'burn rolls: {burn_str}')
+        else:
+            if 'd' in self.attack.lower():
+                result.append(f'variable attack {self.attack}')
+                attack_cond = self.attack.strip('d')
+                dice_faces, addition = map(int,attack_cond.split('+'))
+                attack_rolls = [random.randint(1,6) for i in range(random.randint(1,dice_faces)+addition)]
+            else:
+                attack_rolls = [random.randint(1,6) for i in range(int(self.attack)*self.count)]
+            attack_str = ', '.join(map(str,attack_rolls))
+            result.append(f'attack rolls: {attack_str}')
+            # index = 0
+            # while index < len(attack_rolls):
+            #     if attack_rolls[index] < self.lock:
+            #         attack_rolls.pop(index)
+            #     else:
+            #         index = index + 1
+            # attack_str = ', '.join(map(str,attack_rolls))
+            # result.append(f'successful hits: {attack_str}')
+            if 'd' in str(self.lock).lower():
+                pass
+            else:
+                lock = int(self.lock)
+            if self.calibre:
+                print(f'gun has calibre {self.calibre}, testing ship tonnage')
+                if self.calibre in ship.tonnage:
+                    print('calibre matches target ship tonnage')
+                    lock = lock - 1
+                    result.append(f'gun calibre {self.calibre} matches ship tonnage {ship.tonnage}')
+            if 'd' in str(self.damage).lower():
+                pass
+            else:
+                damage = int(self.damage)
+            for val in attack_rolls:
+                if val >= lock + 2:
+                    crits = crits + damage
+                elif val >= lock:
+                    hits = hits + damage
+
         if hits > 0 or crits > 0:
             result.append(f'normal hits: {hits}, critical hits: {crits}')
         else:
             result.append(f'no hits')
             return result
-        ship_results = ship.mitigate(hits, crits, self.close_action)
+            
+        ship_results = ship.mitigate(hits, crits, self.close_action, self.flash)
         for line in ship_results:
             result.append(line)
         return result
 
 class LaunchAsset():
-    def __init__(self, faction, count):
+    def __init__(self, faction, launch_type, count):
         self.faction = faction
+        self.launch_type = launch_type
         self.count = count
 
 if __name__ == "__main__":
