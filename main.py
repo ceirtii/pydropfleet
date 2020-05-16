@@ -255,7 +255,7 @@ while True:
                                     if ship.moving_up:
                                         ship.move_up()
                                         move_str = move_str + f' up to {ship.layer.name}'
-                                        
+
                                     elif ship.moving_down:
                                         ship.move_down()
                                         move_str = move_str + f' down to {ship.layer.name}'
@@ -564,13 +564,13 @@ while True:
         maxthrust = selectedship.max_thrust()
         minthrust = selectedship.min_thrust()
         # modify thrust values for moving up an orbital layer
-        if selectedship.moving_up:
-            maxthrust = maxthrust - 4
-            if maxthrust < 0:
-                maxthrust = 0
-            minthrust = minthrust - 4
-            if minthrust < 0:
-                minthrust = 0
+        # if selectedship.moving_up:
+        #     maxthrust = maxthrust - 4
+        #     if maxthrust < 0:
+        #         maxthrust = 0
+        #     minthrust = minthrust - 4
+        #     if minthrust < 0:
+        #         minthrust = 0
 
         if dist > maxthrust:
             thrust = maxthrust
