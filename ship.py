@@ -97,6 +97,10 @@ class Ship(pygame.sprite.Sprite):
             self.max_cohesion = 3
         else:
             self.max_cohesion = 6
+        self.layer = OrbitalLayer.HIGH_ORBIT
+        self.can_turn = True
+        self.moving_up = False
+        self.moving_down = False
         
         self.crippled = False
         # crippled effects
@@ -216,6 +220,9 @@ class Ship(pygame.sprite.Sprite):
         return out_str
     
     def update(self):
+        if self.order is ShipOrder.STANDARD:
+            self.minthrust = self.thrust/2
+            self.maxthrust = self.thrust
         if self.state is ShipState.FIRING:
             # print('checking if ship can fire guns')
             # no_target_available = False
@@ -443,6 +450,7 @@ class Ship(pygame.sprite.Sprite):
                         self.engines_disabled = True
                         self.thrust = self.thrust / 2
                         self.orbital_decay = True
+                        self.can_turn = False
                     elif damage == 'weapons offline':
                         self.hp = self.hp - 3
                         self.weapons_offline = True
@@ -568,11 +576,33 @@ class Ship(pygame.sprite.Sprite):
                 out.append('Engines repaired')
                 self.engines_disabled = False
                 self.thrust = Ship.shipDB[self.shipclass]['thrust']
+                self.can_turn = True
         
         if self.hp < 0:
             destruction_out = self.on_destroy()
             for line in destruction_out:
                 out.append(line)
+        return out
+    
+    def get_crippling_effects(self):
+        out = []
+        if not self.crippled:
+            return out
+        
+        if self.fire:
+            out.append('On fire')
+        if self.armor_cracked:
+            out.append('Armor cracked')
+        if self.weapons_offline:
+            out.append('Weapons offline')
+        if self.engines_disabled:
+            out.append('Engines disabled')
+        if self.scanners_offline:
+            out.append('Scanners offline')
+        if self.orbital_decay:
+            out.append('Orbital decay')
+        if self.energy_surge:
+            out.append('Energy surge')
         return out
 
 class ShipOrder(Enum):
@@ -591,6 +621,11 @@ class ShipState(Enum):
     ACTIVATED = auto()
     NOT_YET_ACTIVATED = auto()
     DESTROYED = auto()
+
+class OrbitalLayer(Enum):
+    HIGH_ORBIT = auto()
+    LOW_ORBIT = auto()
+    ATMOSPHERE = auto()
 
 if __name__ == "__main__":
     Ship.load_shipDB()

@@ -54,12 +54,12 @@ class CombatLog:
         self.line_font = font_obj
         self.font_color = NordColors.snow0
         self.currentline = 0
-        self.width_frac = width_frac
+        # self.width_frac = width_frac
         self.needs_update = True
         # self.surf = pygame.Surface((0,0))
     
     def draw(self, surf):
-        self.width = int(surf.get_width()*self.width_frac)
+        self.width = int(surf.get_width()*.5-350)
         self.height = int(surf.get_height()*.2)
         # self.surf = pygame.Surface((self.width, self.height))
         x = surf.get_width()/2-self.width
@@ -109,7 +109,7 @@ class FleetPanel:
     def __init__(self, side, major_font, minor_font, width_frac=.2):
         self.battlegroups = []
         self.battlegroups_originalorder = []
-        self.width = 0
+        self.width = 350
         self.height = 0
         self.rect = pygame.Rect(0,0,self.width,self.height)
         self.color = NordColors.nord0
@@ -120,10 +120,11 @@ class FleetPanel:
         self.surf = None
         self.content_height = 0
         self.needs_update = True
+        self.orbital_layer_mask = pygame.image.load('light hatch cropped.png').convert_alpha()
         # self.buffer = 10
     
     def draw(self, surf):
-        self.width = int(surf.get_width()*self.width_frac)
+        # self.width = int(surf.get_width()*self.width_frac)
         self.height = surf.get_height()
         self.rect.width = self.width
         self.rect.height = surf.get_height()*4
@@ -166,10 +167,20 @@ class FleetPanel:
                         ship_font_color = NordColors.frost3
                     else:
                         ship_font_color = NordColors.snow0
+
                     font_render = self.line_font.render(f'{ship.faction} {ship.name}', True, ship_font_color)
                     class_render = self.minor_font.render(f'{ship.shipclass}-class {ship.shiptype}', 
                             True, 
                             ship_font_color)
+
+                    if ship.layer is OrbitalLayer.HIGH_ORBIT:
+                        layer_str = 'HIGH'
+                    elif ship.layer is OrbitalLayer.LOW_ORBIT:
+                        layer_str = 'LOW'
+                    else:
+                        layer_str = 'ATMO'
+                    layer_str_width = self.minor_font.size(layer_str)[0]
+                    layer_render = self.minor_font.render(layer_str, True, ship_font_color)
                     box_height = line_height+2*minor_height+buffer
                     
                     ship.panel_rect.left = 1.5*buffer
@@ -178,6 +189,9 @@ class FleetPanel:
                     ship.panel_rect.height = box_height
 
                     pygame.draw.rect(self.surf, NordColors.nord2, ship.panel_rect)
+                    # hatch_surf = pygame.Surface((ship.panel_rect.width, ship.panel_rect.height))
+                    # hatch_surf.blit(self.orbital_layer_mask, (0,0))
+                    # self.surf.blit(pygame.transform.scale(self.orbital_layer_mask, (ship.panel_rect.width, ship.panel_rect.height)), ship.panel_rect.topleft)
 
                     hull_string = f'{ship.hp}/{ship.hull}'
                     hull_string_width = self.line_font.size(hull_string)[0]
@@ -191,6 +205,7 @@ class FleetPanel:
                     self.surf.blit(font_render, (2 * buffer, y))
                     y = y + line_height
                     self.surf.blit(class_render, (2 * buffer, y))
+                    self.surf.blit(layer_render, ((self.rect.width-2*buffer-layer_str_width, y)))
                     y = y + minor_height + buffer
 
                     hull_bar_length = ship.panel_rect.width-2*buffer
@@ -231,7 +246,7 @@ class InfoPanel:
         self.selectedship = None
         self.rect = None
         self.height_frac = height_frac
-        self.width_frac = width_frac
+        # self.width_frac = width_frac
         self.color = NordColors.nord2
         self.buffer = 10
         self.line_font = major_font
@@ -245,7 +260,7 @@ class InfoPanel:
         self.hovered_gun = None
         self.rect = pygame.Rect(surf.get_width()/2,
                 surf.get_height()*(1-self.height_frac),
-                surf.get_width()*self.width_frac,
+                surf.get_width()*.5-350,
                 surf.get_height()*self.height_frac)
         pygame.draw.rect(surf, self.color, self.rect)
         
@@ -293,6 +308,12 @@ class InfoPanel:
             surf.blit(sig_render, (self.rect.left+self.buffer,y))
             y = y + minor_height
 
+            ailments = self.selectedship.get_crippling_effects()
+            if ailments:
+                ailments = ', '.join(ailments)
+                ailments_render = self.minor_font.render(ailments, True, NordColors.snow0)
+                surf.blit(ailments_render, (self.rect.left+self.buffer,y))
+
     def scroll(self, dir):
         pass
 
@@ -317,6 +338,7 @@ class Battlegroup:
         self.hovered = False
         self.up_arrow_rect = None
         self.down_arrow_rect = None
+        self.player = None
         # self.update_sr()
 
     def __str__(self):
@@ -710,7 +732,7 @@ class GameController:
                     self.next_phase()
                     return
 
-                self.current_state = f'turn {self.turn}: P{next_player} Activate Battlegroup'
+                self.current_state = f'Turn {self.turn}: P{next_player} Activate Battlegroup'
                 self.active_bg.activate()
                 self.combatlog.append(f'activating {self.active_bg}')
     
@@ -799,7 +821,7 @@ class TargetPanel:
     def draw(self, surf):
         if not self.active:
             return
-        self.rect.right = surf.get_width()*.8
+        self.rect.right = surf.get_width() - 350
         self.rect.height = (len(self.target_list)+1)*self.buffer*2
         self.rect.bottom = surf.get_height()*.8
         pygame.draw.rect(surf, NordColors.nord1, self.rect)
@@ -832,6 +854,7 @@ class Player:
             if line.startswith('SR'):
                 vals = line.split()
                 currentBG = Battlegroup(vals[1], vals[3][1:-4])
+                currentBG.player = self
                 self.battlegroups.append(currentBG)
             elif line[0].isdigit():
                 vals = line.split()
@@ -870,13 +893,13 @@ class Player:
 class TargetQueue:
     def __init__(self, font):
         self.target_queue = []
-        self.rect = pygame.Rect(0,0,300,0)
+        self.rect = pygame.Rect(350,0,300,0)
         self.font = font
         self.active = False
         self.font_height = font.size('')[1]
 
     def draw(self, surf):
-        self.rect.left = surf.get_width()*.2
+        # self.rect.left = 350
         self.rect.height = len(self.target_queue)*self.font_height
         x = self.rect.left
         y = 0

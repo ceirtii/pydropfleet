@@ -9,7 +9,7 @@ from ui import *
 from queue import Queue
 import random
 
-debug = True
+debug = False
 if not debug:
     sys.stdout = io.StringIO()
 
@@ -42,9 +42,9 @@ playarea.rect = playarea.image.get_rect()
 draggables.append(playarea)
 sprites.add(playarea)
 
-title_font = pygame.font.Font('kooten.ttf', 24)
-major_font = pygame.font.Font('kooten.ttf', 18)
-minor_font = pygame.font.Font('kooten.ttf', 14)
+title_font = pygame.font.Font('wscsnbd.ttf', 24)
+major_font = pygame.font.Font('wscsnbd.ttf', 18)
+minor_font = pygame.font.Font('wscsnrg.ttf', 14)
 print('fonts loaded')
 
 print('initializing gamecontroller')
@@ -321,6 +321,7 @@ while True:
                     draggable.rect.y = mouse_y + draggable_offsets[index][1]
             
         elif event.type == pygame.KEYDOWN:
+            # print(f'key pressed: {event.key}')
             if event.key == pygame.K_ESCAPE:
                 if selectedship:
                     draggables.append(selectedship)
@@ -362,6 +363,24 @@ while True:
 
             if event.key == pygame.K_t:
                 show_tooltip = not show_tooltip
+            
+            if event.key == pygame.K_PAGEUP:
+                if selectedship and selectedship.state is ShipState.MOVING and selectedship.is_selected:
+                    if selectedship.layer is not OrbitalLayer.HIGH_ORBIT and selectedship.can_move and selectedship.maxthrust >= 4:
+                        if selectedship.moving_down:
+                            selectedship.moving_down = False
+                        else:
+                            print('moving up by one layer')
+                            selectedship.moving_up = True
+
+            if event.key == pygame.K_PAGEDOWN:
+                if selectedship and selectedship.state is ShipState.MOVING and selectedship.is_selected:
+                    if selectedship.layer is not OrbitalLayer.HIGH_ORBIT and selectedship.can_move:
+                        if selectedship.moving_up:
+                            selectedship.moving_up = False
+                        else:
+                            print('moving down by one layer')
+                            selectedship.moving_down = True
 
     player1.update()
     player2.update()
@@ -448,13 +467,19 @@ while True:
             if ship in player2.ships:
                 player2.ships.remove(ship)
         if show_signature:
-            if ship.player == 1:
-                sig_color = NordColors.frost3
-            else:
-                sig_color = NordColors.aurora4
+            # if ship.player == 1:
+            #     sig_color = NordColors.frost3
+            # else:
+            #     sig_color = NordColors.aurora4
+            if gamecontroller.active_bg:
+                if gamecontroller.active_bg.player is player1 and ship in player1.ships:
+                    continue
+                if gamecontroller.active_bg.player is player2 and ship in player2.ships:
+                    continue
             x, y = ship.rect.center
+            sig_color = NordColors.aurora4
             sig = playarea.scalegridtopixel(ship.active_sig)
-            alpha = (128,)
+            alpha = (64,)
             pygame.gfxdraw.filled_circle(DISPLAYSURF,x,y,sig,sig_color+alpha)
 
         if ship.panel_rect.collidepoint(mousepos) or ship.rect.collidepoint(mousepos):
@@ -506,14 +531,26 @@ while True:
         center = mousepos
         selectedship.selection_loc = playarea.pixeltogrid(center) #grid location of selectedship when selected
         center = playarea.gridtopixel(selectedship.selection_loc)
-        dist = math.sqrt(math.pow(selectedship.selection_loc[0] - selectedship.loc[0],2) + math.pow(selectedship.selection_loc[1] - selectedship.loc[1],2))
+        dist = math.dist(selectedship.selection_loc, selectedship.loc)
         # if dist > selectedship.maxthrust or dist < selectedship.minthrust:
             # print(f'selectedship selection loc {selectedship.selection_loc}')
             # print(f'selectedship loc {selectedship.loc}')
-        if dist > selectedship.maxthrust:
-            thrust = selectedship.maxthrust
-        elif dist < selectedship.minthrust:
-            thrust = selectedship.minthrust
+        
+        maxthrust = selectedship.maxthrust
+        minthrust = selectedship.minthrust
+        # modify thrust values for moving up an orbital layer
+        if selectedship.moving_up:
+            maxthrust = maxthrust - 4
+            if maxthrust < 0:
+                maxthrust = 0
+            minthrust = minthrust - 4
+            if minthrust < 0:
+                minthrust = 0
+
+        if dist > maxthrust:
+            thrust = maxthrust
+        elif dist < minthrust:
+            thrust = minthrust
             # if dist == 0: dist = .001
         else:
             thrust = dist
@@ -550,35 +587,43 @@ while True:
         pygame.draw.rect(DISPLAYSURF, NordColors.frost1, selectedship.rect,1)
 
         # print(selectedship.bearing)
-        minthrust_pixel = playarea.scalegridtopixel(selectedship.minthrust)
-        maxthrust_pixel = playarea.scalegridtopixel(selectedship.maxthrust)
-        selectedshipx_pixel = playarea.gridtopixel(selectedship.loc)[0]
-        selectedshipy_pixel = playarea.gridtopixel(selectedship.loc)[1]
-        border1_bearing = (selectedship.bearing + 45) % 360
-        border2_bearing = (selectedship.bearing - 45) % 360
-        for bearing in [border1_bearing, border2_bearing]:
-            border1_x1 = -minthrust_pixel * math.sin(math.radians(bearing)) + selectedshipx_pixel
-            border1_x2 = -maxthrust_pixel * math.sin(math.radians(bearing)) + selectedshipx_pixel
-            border1_y1 = -minthrust_pixel * math.cos(math.radians(bearing)) + selectedshipy_pixel
-            border1_y2 = -maxthrust_pixel * math.cos(math.radians(bearing)) + selectedshipy_pixel
-            pygame.draw.line(DISPLAYSURF,
-                    NordColors.frost0, 
-                    (border1_x1, border1_y1), 
-                    (border1_x2, border1_y2))
+        # minthrust_pixel = playarea.scalegridtopixel(selectedship.minthrust)
+        # maxthrust_pixel = playarea.scalegridtopixel(selectedship.maxthrust)
+        # selectedshipx_pixel = playarea.gridtopixel(selectedship.loc)[0]
+        # selectedshipy_pixel = playarea.gridtopixel(selectedship.loc)[1]
+        # border1_bearing = (selectedship.bearing + 45) % 360
+        # border2_bearing = (selectedship.bearing - 45) % 360
+        # for bearing in [border1_bearing, border2_bearing]:
+        #     border1_x1 = -minthrust_pixel * math.sin(math.radians(bearing)) + selectedshipx_pixel
+        #     border1_x2 = -maxthrust_pixel * math.sin(math.radians(bearing)) + selectedshipx_pixel
+        #     border1_y1 = -minthrust_pixel * math.cos(math.radians(bearing)) + selectedshipy_pixel
+        #     border1_y2 = -maxthrust_pixel * math.cos(math.radians(bearing)) + selectedshipy_pixel
+        #     pygame.draw.line(DISPLAYSURF,
+        #             NordColors.frost0, 
+        #             (border1_x1, border1_y1), 
+        #             (border1_x2, border1_y2))
 
-        for i in [selectedship.minthrust,selectedship.maxthrust]:
-            if i == 0: break
-            selectedship_thrust_pixel,val = playarea.gridtopixel((i,0))
-            selectedship_thrust_pixel = selectedship_thrust_pixel - playarea.rect.x
-            # pygame.draw.circle(DISPLAYSURF, selection_color, playarea.gridtopixel(selectedship.loc), selectedship_thrust_pixel, 1)
-            left = playarea.gridtopixel(selectedship.loc)[0] - selectedship_thrust_pixel
-            top = playarea.gridtopixel(selectedship.loc)[1] - selectedship_thrust_pixel
-            dim = 2*selectedship_thrust_pixel
-            pygame.draw.arc(DISPLAYSURF, 
-                    NordColors.frost0, 
-                    pygame.Rect(left,top, dim, dim), 
-                    math.radians(border1_bearing), 
-                    math.radians(border2_bearing-180))
+        r1 = playarea.scalegridtopixel(minthrust)
+        r2 = playarea.scalegridtopixel(maxthrust)
+        t1 = math.radians((selectedship.bearing + 45) % 360)
+        t2 = math.radians((selectedship.bearing - 225) % 360)
+        ship_x = playarea.gridtopixel(selectedship.loc)[0]
+        ship_y = playarea.gridtopixel(selectedship.loc)[1]
+        fill_sector(DISPLAYSURF, (ship_x, ship_y), r1, r2, t1, t2, NordColors.frost0 + (96,))
+
+        # for i in [selectedship.minthrust,selectedship.maxthrust]:
+        #     if i == 0: break
+        #     selectedship_thrust_pixel,val = playarea.gridtopixel((i,0))
+        #     selectedship_thrust_pixel = selectedship_thrust_pixel - playarea.rect.x
+        #     # pygame.draw.circle(DISPLAYSURF, selection_color, playarea.gridtopixel(selectedship.loc), selectedship_thrust_pixel, 1)
+        #     left = playarea.gridtopixel(selectedship.loc)[0] - selectedship_thrust_pixel
+        #     top = playarea.gridtopixel(selectedship.loc)[1] - selectedship_thrust_pixel
+        #     dim = 2*selectedship_thrust_pixel
+        #     pygame.draw.arc(DISPLAYSURF, 
+        #             NordColors.frost0, 
+        #             pygame.Rect(left,top, dim, dim), 
+        #             math.radians(border1_bearing), 
+        #             math.radians(border2_bearing-180))
 
         selectedship.draw_firingarcs(DISPLAYSURF)
         pygame.draw.line(DISPLAYSURF, 
