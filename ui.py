@@ -2,8 +2,8 @@ import pygame
 from pygame.locals import *
 from helper import *
 from ship import *
+from game_constants import *
 import random
-from enum import Enum, auto
 from queue import Queue
 
 class PlayArea(pygame.sprite.Sprite):
@@ -175,12 +175,26 @@ class FleetPanel:
 
                     if ship.layer is OrbitalLayer.HIGH_ORBIT:
                         layer_str = 'HIGH'
+                        if ship.moving_down:
+                            layer_str = layer_str + ' -> LOW'
                     elif ship.layer is OrbitalLayer.LOW_ORBIT:
                         layer_str = 'LOW'
+                        if ship.moving_down:
+                            layer_str = layer_str + ' -> ATMO'
+                        elif ship.moving_up:
+                            layer_str = layer_str + ' -> HIGH'
                     else:
                         layer_str = 'ATMO'
+                        if ship.moving_up:
+                            layer_str = layer_str + ' -> LOW'
+                    
+                    if 'ATMO' in layer_str and not ship.atmospheric:
+                        layer_color = NordColors.aurora0
+                    else:
+                        layer_color = NordColors.snow0
+
                     layer_str_width = self.minor_font.size(layer_str)[0]
-                    layer_render = self.minor_font.render(layer_str, True, NordColors.snow0)
+                    layer_render = self.minor_font.render(layer_str, True, layer_color)
                     box_height = line_height+2*minor_height+buffer
                     
                     ship.panel_rect.left = 1.5*buffer
@@ -555,7 +569,7 @@ class GameController:
         # if 'Cleanup' in self.current_state:
         #     print('Battlegroup activations complete, perform turn cleanup')
 
-        if self.current_state == 'Setup':# or 'Roundup' in self.current_state:
+        if 'Setup' in self.current_state:# or 'Roundup' in self.current_state:
             print(f'{self.current_state} phase complete, plan battlegroup activation order')
             self.current_state = 'Planning (P1)'
             for fleetlist in [self.p1_battlegroups, self.p2_battlegroups]:
@@ -607,7 +621,6 @@ class GameController:
                 
                 self.combatlog.append('all battlegroups activated, turn roundup')
                 self.current_state = f'Turn {self.turn}: Roundup (Ground Combat)'
-                self.turn = self.turn + 1
                 self.round = 1
 
             elif self.p1_bg_queue and self.p2_bg_queue:
@@ -649,28 +662,38 @@ class GameController:
         
         elif 'Ground Combat' in self.current_state:
             print('resolve ground combat')
+            print('resolve launch assets')
             self.current_state = f'Turn {self.turn}: Roundup (Launch Assets)'
         
         elif 'Launch Assets' in self.current_state:
-            print('resolve launch assets')
+            print('resolve damage control')
+            bgs = self.p1_battlegroups + self.p2_battlegroups
+            for bg in bgs:
+                for group in bg.groups:
+                    for ship in group:
+                        dc_results = ship.do_damage_control()
+                        if dc_results:
+                            self.combatlog.append(f'{ship} doing damage control')
+                            for line in dc_results:
+                                self.combatlog.append(line)
             self.current_state = f'Turn {self.turn}: Roundup (Damage Control)'
 
         elif 'Damage Control' in self.current_state:
-            print('resolve damage control')
-            fleets = [self.p1_battlegroups, self.p2_battlegroups]
-            for fleet in fleets:
-                for bg in fleet:
-                    for group in bg.groups:
-                        for ship in group:
-                            dc_results = ship.do_damage_control()
-                            if dc_results:
-                                self.combatlog.append(f'{ship} doing damage control')
-                                for line in dc_results:
-                                    self.combatlog.append(line)
+            print('resolve orbital decay')
+            bgs = self.p1_battlegroups + self.p2_battlegroups
+            for bg in bgs:
+                for group in bg.groups:
+                    for ship in group:
+                        dc_results = ship.do_orbital_decay()
+                        if dc_results:
+                            self.combatlog.append(f'{ship} doing damage control')
+                            for line in dc_results:
+                                self.combatlog.append(line)
             self.current_state = f'Turn {self.turn}: Roundup (Orbital Decay)'
 
         elif 'Orbital Decay' in self.current_state:
             print('distribute victory points')
+            self.turn = self.turn + 1
             self.current_state = 'Setup'
             self.next_phase()
 

@@ -1,10 +1,10 @@
 import pygame
 import csv
-from enum import Enum, auto
 from guns import *
 import copy
 import json
 import random
+from game_constants import *
 
 class Ship(pygame.sprite.Sprite):
     shipDB = dict()
@@ -14,6 +14,16 @@ class Ship(pygame.sprite.Sprite):
     ship_tonnage = {'light': 1, 'medium': 5, 'heavy': 10, 'super heavy': 15, 'light2': 2}
 
     def __init__(self, playarea, shipclass, loc=(-1,-1), name=None, imagepath='blueship.png'):
+        """
+        Initialize Ship object. Reads ship properties from Ship.shipDB and 
+        weapon loadout from Ship.shipgunsDB.
+
+        playarea -- reference to PlayArea object for gameplay.
+        shipclass -- Ship class for property lookup.
+        loc -- Location on playarea as tuple coord.
+        name -- name of ship
+        imagepath -- path to image used for drawing the ship on the playarea.
+        """
         pygame.sprite.Sprite.__init__(self)
         if not Ship.shipDB:
             Ship.load_shipDB()
@@ -28,6 +38,13 @@ class Ship(pygame.sprite.Sprite):
         self.pd = Ship.shipDB[shipclass]['pd']
         self.shiptype = Ship.shipDB[shipclass]['shiptype']
         self.tonnage = Ship.shipDB[shipclass]['tonnage']
+
+        # special characteristics
+        try:
+            self.atmospheric = Ship.shipDB[shipclass]['atmospheric']
+        except KeyError:
+            self.atmospheric = False
+        
         self.linked_guns = dict()
         self.player = None
         self.active_sig = self.sig
@@ -84,8 +101,8 @@ class Ship(pygame.sprite.Sprite):
         else:
             self.name = name
         self.order = ShipOrder.STANDARD
-        self.minthrust = self.thrust/2
-        self.maxthrust = self.thrust
+        # self.minthrust = self.thrust/2
+        # self.maxthrust = self.thrust
         self.highlight = False
         self.state = ShipState.SETUP
         self.group = []
@@ -220,9 +237,9 @@ class Ship(pygame.sprite.Sprite):
         return out_str
     
     def update(self):
-        if self.order is ShipOrder.STANDARD:
-            self.minthrust = self.thrust/2
-            self.maxthrust = self.thrust
+        # if self.order is ShipOrder.STANDARD:
+        #     self.minthrust = self.thrust/2
+        #     self.maxthrust = self.thrust
         if self.state is ShipState.FIRING:
             # print('checking if ship can fire guns')
             # no_target_available = False
@@ -469,32 +486,33 @@ class Ship(pygame.sprite.Sprite):
         
         return out
     
-    def on_destroy(self):
+    def on_destroy(self, catastrophic_damage=True):
         out = []
         out.append(f'ship destroyed!')
         self.hp = 0
         self.state = ShipState.DESTROYED
         self.battlegroup.update_sr()
 
-        # do catastrophic damage
-        if self.hull < 4:
-            out.append('ship too small for catastrophic damage')
-        else:
-            out.append('rolling for catastrophic damage')
-            explode_roll = random.randint(1,6)
-            
-            if self.hull < 7:
-                explode_radius = random.randint(1,3)
+        if catastrophic_damage:
+            # do catastrophic damage
+            if self.hull < 4:
+                out.append('ship too small for catastrophic damage')
             else:
-                explode_radius = random.randint(1,6)
+                out.append('rolling for catastrophic damage')
+                explode_roll = random.randint(1,6)
+                
+                if self.hull < 7:
+                    explode_radius = random.randint(1,3)
+                else:
+                    explode_radius = random.randint(1,6)
 
-            if self.hull >= 10:
-                explode_roll = explode_roll + 1
+                if self.hull >= 10:
+                    explode_roll = explode_roll + 1
 
-            out.append(f'rolled {explode_roll}, radius {explode_radius}')
-            cata_damage = self.gamecontroller.do_catastrophic_damage(self, explode_roll, explode_radius)
-            for line in cata_damage:
-                out.append(line)
+                out.append(f'rolled {explode_roll}, radius {explode_radius}')
+                cata_damage = self.gamecontroller.do_catastrophic_damage(self, explode_roll, explode_radius)
+                for line in cata_damage:
+                    out.append(line)
         
         self.loc = (-1000, -1000)
         self.rect = pygame.Rect(0,0,0,0)
@@ -578,7 +596,7 @@ class Ship(pygame.sprite.Sprite):
                 self.thrust = Ship.shipDB[self.shipclass]['thrust']
                 self.can_turn = True
         
-        if self.hp < 0:
+        if self.hp <= 0:
             destruction_out = self.on_destroy()
             for line in destruction_out:
                 out.append(line)
@@ -610,29 +628,99 @@ class Ship(pygame.sprite.Sprite):
         sig_color = NordColors.aurora4
         sig = self.playarea.scalegridtopixel(self.active_sig)
         alpha = (64,)
-        pygame.gfxdraw.filled_circle(surf,x,y,sig,sig_color+alpha)
+        return pygame.gfxdraw.filled_circle(surf,x,y,sig,sig_color+alpha)
+    
+    def move_up(self):
+        if self.layer is OrbitalLayer.ATMOSPHERE:
+            self.layer = OrbitalLayer.LOW_ORBIT
 
-class ShipOrder(Enum):
-    STANDARD = auto()
-    WEAPONSFREE = auto()
-    STATIONKEEPING = auto()
-    COURSECHANGE = auto()
-    MAXTHRUST = auto()
-    SILENTRUNNING = auto()
-    ACTIVESCAN = auto()
+        elif self.layer is OrbitalLayer.LOW_ORBIT:
+            self.layer = OrbitalLayer.HIGH_ORBIT
+        
+        else:
+            print('ESCAPE VELOCITY!?!?!?!?!!?')
+            raise Exception
 
-class ShipState(Enum):
-    SETUP = auto()
-    MOVING = auto()
-    FIRING = auto()
-    ACTIVATED = auto()
-    NOT_YET_ACTIVATED = auto()
-    DESTROYED = auto()
+        self.moving_up = False
+    
+    def move_down(self):
+        out = ''
+        if self.layer is OrbitalLayer.ATMOSPHERE:
+            print('Crashed into ground!')
+            self.on_destroy(catastrophic_damage=False)
+            out = 'Crashed into ground!'
 
-class OrbitalLayer(Enum):
-    HIGH_ORBIT = auto()
-    LOW_ORBIT = auto()
-    ATMOSPHERE = auto()
+        elif self.layer is OrbitalLayer.LOW_ORBIT:
+            if self.atmospheric:
+                self.layer = OrbitalLayer.ATMOSPHERE
+                out = 'Dropped to atmosphere'
+            else:
+                print('Crashed into atmosphere!')
+                self.on_destroy(catastrophic_damage=False)
+                out = 'Crashed into atmosphere!'
+        
+        elif self.layer is OrbitalLayer.HIGH_ORBIT:
+            self.layer = OrbitalLayer.LOW_ORBIT
+            out = 'Dropped to low orbit'
+        
+        else:
+            print('how did you get here?')
+            raise Exception
+        
+        self.moving_down = False
+        return out
+    
+    def max_thrust(self):
+        # available thrust
+        thrust = self.thrust
+        if self.layer is OrbitalLayer.ATMOSPHERE:
+            thrust = 2
+        
+        # modify available thrust
+        if self.order is ShipOrder.STANDARD:
+            # no change to thrust
+            pass
+        if self.moving_up:
+            thrust = thrust - 4
+        
+        return thrust
+
+    def min_thrust(self):
+        # available thrust
+        thrust = self.thrust
+        if self.layer is OrbitalLayer.ATMOSPHERE:
+            thrust = 2
+        
+        # modify available thrust
+        if self.order is ShipOrder.STANDARD:
+            thrust = thrust / 2
+        if self.moving_up:
+            thrust = thrust - 4
+        return thrust
+    
+    def do_orbital_decay(self):
+        out = []
+        if not self.orbital_decay:
+            return out
+        decay_roll = random.randint(1,6)
+        if decay_roll == 1:
+            self.hp = self.hp - 1
+            if self.hp <= 0:
+                destruction_out = self.on_destroy(catastrophic_damage=False)
+                for line in destruction_out:
+                    out.append(line)
+        if decay_roll <= 3:
+            out.append(self.move_down())
+        else:
+            out.append('Orbital decay repaired')
+            self.orbital_decay = False
+    
+    # def draw_change_layer(self, surf):
+    #     if self.moving_down:
+    #         print('draw moving down indicator')
+    #     elif self.moving_up:
+    #         print('draw moving up indicator')
+    #     return
 
 if __name__ == "__main__":
     Ship.load_shipDB()

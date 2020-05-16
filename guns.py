@@ -3,21 +3,8 @@ import json
 from helper import fill_arc, NordColors
 import pygame
 import math
-from enum import Enum, auto
 import random
-
-class WeaponArcs(Enum):
-    FRONT = 45
-    NARROW = 78.75
-    LEFT = 135
-    BACK = 225
-    RIGHT = 315
-
-class GunState(Enum):
-    INACTIVE = auto()
-    TARGETING = auto()
-    FIRED = auto()
-    # DISABLED = auto()
+from game_constants import *
 
 class Weapon:
     gunDB = dict()
@@ -140,13 +127,17 @@ class Weapon:
     
     def get_targetable_ships(self, ships, playarea):
         out = []
+        if self.ship.layer is OrbitalLayer.ATMOSPHERE and self.close_action:
+            return out
+        # source_layer = self.ship.layer
         sectors = self.get_sectors()
         for target in ships:
             x0, y0 = self.ship.loc
             x1, y1 = target.loc
+            # dist = math.dist([x0, y1], [])
             dist = math.sqrt(math.pow(x1-x0,2)+math.pow(y1-y0,2))
             # print(f'ship {target.name} at a distance {dist}')
-            if self.close_action:
+            if self.close_action or self.ship.layer is OrbitalLayer.ATMOSPHERE:
                 gun_range = self.ship.scan
             else:
                 gun_range = target.active_sig + self.ship.scan
@@ -183,12 +174,24 @@ class Weapon:
     def shoot(self, ship):
         result = []
         result.append(f'{self.guntype} on {str(self.ship)} -> {str(ship)}')
+
+        source_layer = self.ship.layer
+        target_layer = ship.layer
+        in_atmosphere = source_layer is OrbitalLayer.ATMOSPHERE or target_layer is OrbitalLayer.ATMOSPHERE
+        crossing_layer = source_layer is not target_layer
+
         hits = 0
         crits = 0
         if self.burnthrough:
             result.append('firing burnthrough weapon')
             burn_rolls = []
             lock = int(self.lock)
+            if in_atmosphere:
+                result.append('increasing lock to 6 due to firing through atmo')
+                lock = 6
+            elif crossing_layer:
+                result.append('increasing lock by 1 due to firing across orbital layers')
+                lock = lock + 1
             damage = int(self.damage)
             for i in range(int(self.attack)):
                 while hits + crits < self.burnthrough:
@@ -221,15 +224,25 @@ class Weapon:
             # attack_str = ', '.join(map(str,attack_rolls))
             # result.append(f'successful hits: {attack_str}')
             if 'd' in str(self.lock).lower():
-                pass
+                print('variable lock not implemented')
+                raise Exception
             else:
                 lock = int(self.lock)
+            
             if self.calibre:
                 print(f'gun has calibre {self.calibre}, testing ship tonnage')
                 if self.calibre in ship.tonnage:
                     print('calibre matches target ship tonnage')
                     lock = lock - 1
                     result.append(f'gun calibre {self.calibre} matches ship tonnage {ship.tonnage}')
+            
+            if in_atmosphere:
+                result.append('increasing lock to 6 due to firing through atmo')
+                lock = 6
+            elif crossing_layer:
+                result.append('increasing lock by 1 due to firing across orbital layers')
+                lock = lock + 1
+
             if 'd' in str(self.damage).lower():
                 pass
             else:

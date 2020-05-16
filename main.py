@@ -1,7 +1,6 @@
 import pygame, sys, math, io
 from pygame.locals import *
 import pygame.gfxdraw
-from enum import Enum
 from ship import *
 from guns import *
 from helper import *
@@ -229,6 +228,7 @@ while True:
                         if ship.rect.collidepoint(event.pos) and ship is infopanel.selectedship:
                             if ship.state in [ShipState.SETUP, ShipState.MOVING]:
                                 if not ship.is_selected:
+                                    print('moving selected ship')
                                     # infopanel.selectedship = ship
                                     selectedship = ship
                                     draggables.remove(ship)
@@ -241,6 +241,7 @@ while True:
                                     # print(f'initial bearing {ship.bearing}')
                                     break
                                 else:
+                                    print('finishing movement of selected ship')
                                     # infopanel.selectedship = None
                                     draggables.append(ship)
                                     selectedship = None
@@ -249,8 +250,18 @@ while True:
                                     ship.selection_loc = None
                                     ship.bearing = ship.selection_bearing
                                     move_str = f'{ship.name} moved to {ship.loc[0]:.1f},'
-                                    move_str = move_str + f' {ship.loc[1]:.1f} bearing {ship.bearing:.3f}'
+                                    move_str = move_str + f' {ship.loc[1]:.1f} bearing {int(ship.bearing)}'
+                                        
+                                    if ship.moving_up:
+                                        ship.move_up()
+                                        move_str = move_str + f' up to {ship.layer.name}'
+                                        
+                                    elif ship.moving_down:
+                                        ship.move_down()
+                                        move_str = move_str + f' down to {ship.layer.name}'
+
                                     combatlog.log.append(move_str)
+
                                     if ship.state is ShipState.MOVING:
                                         ship.state = ShipState.FIRING
                                     break
@@ -377,22 +388,34 @@ while True:
                 show_tooltip = not show_tooltip
             
             if event.key == pygame.K_PAGEUP:
-                if selectedship and selectedship.state is ShipState.MOVING and selectedship.is_selected:
-                    if selectedship.layer is not OrbitalLayer.HIGH_ORBIT and selectedship.can_move and selectedship.maxthrust >= 4:
-                        if selectedship.moving_down:
-                            selectedship.moving_down = False
-                        else:
-                            print('moving up by one layer')
-                            selectedship.moving_up = True
+                print('check move up conditions:')
+                print(f'selectedship={selectedship}')
+                print(f'selectedship moving? {selectedship.state}')
+                print(f'selectedship selected? {selectedship.is_selected}')
+
+                if selectedship.moving_down:
+                    print('cancelling move down')
+                    selectedship.moving_down = False
+                elif selectedship and selectedship.state is ShipState.MOVING and selectedship.is_selected:
+                    print('check ship conditions')
+                    if selectedship.layer is not OrbitalLayer.HIGH_ORBIT and selectedship.can_turn and selectedship.thrust >= 4:
+                        print('moving up by one layer')
+                        selectedship.moving_up = True
 
             if event.key == pygame.K_PAGEDOWN:
-                if selectedship and selectedship.state is ShipState.MOVING and selectedship.is_selected:
-                    if selectedship.layer is not OrbitalLayer.HIGH_ORBIT and selectedship.can_move:
-                        if selectedship.moving_up:
-                            selectedship.moving_up = False
-                        else:
-                            print('moving down by one layer')
-                            selectedship.moving_down = True
+                print('check move down conditions:')
+                print(f'selectedship={selectedship}')
+                print(f'selectedship moving? {selectedship.state}')
+                print(f'selectedship selected? {selectedship.is_selected}')
+
+                if selectedship.moving_up:
+                    print('cancelling move up')
+                    selectedship.moving_up = False
+                elif selectedship and selectedship.state is ShipState.MOVING and selectedship.is_selected:
+                    print('check ship conditions')
+                    if selectedship.layer is not OrbitalLayer.ATMOSPHERE and selectedship.can_turn:
+                        print('moving down by one layer')
+                        selectedship.moving_down = True
 
     player1.update()
     player2.update()
@@ -465,7 +488,7 @@ while True:
         if targetpanel.gun.ship is not infopanel.selectedship:
             targetpanel.active = False
 
-    # hoveredship_drawn = False
+    # DRAW STUFF FOR ALL THE SHIPS
     for ship in player1.ships + player2.ships:
         ship.hover = False
         if ship.state is ShipState.DESTROYED and ship in ships:
@@ -481,7 +504,7 @@ while True:
 
         if show_p1_sig and ship in player1.ships:
             ship.draw_sig(DISPLAYSURF)
-        if show_p2_sig and ship in player2.ships:
+        elif show_p2_sig and ship in player2.ships:
             ship.draw_sig(DISPLAYSURF)
 
         if ship.panel_rect.collidepoint(mousepos) or ship.rect.collidepoint(mousepos):
@@ -538,8 +561,8 @@ while True:
             # print(f'selectedship selection loc {selectedship.selection_loc}')
             # print(f'selectedship loc {selectedship.loc}')
         
-        maxthrust = selectedship.maxthrust
-        minthrust = selectedship.minthrust
+        maxthrust = selectedship.max_thrust()
+        minthrust = selectedship.min_thrust()
         # modify thrust values for moving up an orbital layer
         if selectedship.moving_up:
             maxthrust = maxthrust - 4
@@ -632,6 +655,11 @@ while True:
                 NordColors.frost0, 
                 playarea.gridtopixel(selectedship.loc), 
                 selectedship.rect.center)
+        
+        # if selectedship.moving_down:
+        #     up_indicator = title_font.render('\\/', True, NordColors.frost0)
+        #     DISPLAYSURF.blit(up_indicator, center)
+
         # DISPLAYSURF.blit(sprite.image,(sprite.x, sprite.y))
     # else:
     #     for ship in ships:

@@ -105,7 +105,8 @@
     "armor": 3,
     "pd": 3,
     "shiptype": "Strike Carrier",
-    "tonnage": "light"
+    "tonnage": "light",
+    "atmospheric": true
   },
   {
     "shipclass": "Orion",
@@ -129,7 +130,8 @@
     "armor": 4,
     "pd": 2,
     "shiptype": "Corvette",
-    "tonnage": "light"
+    "tonnage": "light",
+    "atmospheric": true
   },
   {
     "shipclass": "Europa",
@@ -249,7 +251,8 @@
     "armor": 5,
     "pd": 2,
     "shiptype": "Corvette",
-    "tonnage": "light"
+    "tonnage": "light",
+    "atmospheric": true
   },
   {
     "shipclass": "New Orleans",
@@ -261,7 +264,8 @@
     "armor": 4,
     "pd": 3,
     "shiptype": "Strike Carrier",
-    "tonnage": "light"
+    "tonnage": "light",
+    "atmospheric": true
   },
   {
     "shipclass": "Vancouver",
