@@ -439,6 +439,7 @@ class GameController:
         self.combatlog = None
         self.target_queue = None
         self.turn = 1
+        self.resolve_attacks = False
         # self.needs_update = True
         # self.activation_queue = Queue()
     
@@ -448,11 +449,14 @@ class GameController:
         gamephase_render_size = self.title_font.size(state_text)
         surf.blit(gamephase_render, ((surf.get_width()-gamephase_render_size[0])/2,0))
 
-        if 'Activate' in self.current_state:
+        if 'Activate' in self.current_state and not self.resolve_attacks:
             # don't draw end turn button
             self.rect = pygame.Rect(0,0,0,0)
         else:
-            endturn = 'Next Phase'
+            if self.resolve_attacks:
+                endturn = 'Resolve attack'
+            else:
+                endturn = 'Next Phase'
             endturnbutton_render = self.major_font.render(endturn, True, NordColors.snow0)
             endturnbutton_render_width = self.major_font.size(endturn)
             self.rect.left = (surf.get_width()-endturnbutton_render_width[0])/2
@@ -490,6 +494,14 @@ class GameController:
             surf.blit(p2_button_render,p2_button_loc)
     
     def next_phase(self, next_player=None):
+        if self.resolve_attacks:
+            while not self.target_queue.is_empty():
+                gun, target = self.target_queue.pop()
+                result = gun.shoot(target)
+                print(result)
+                for line in result:
+                    self.combatlog.append(line)
+            return
         # if 'Cleanup' in self.current_state:
         #     print('Battlegroup activations complete, perform turn cleanup')
 
@@ -612,13 +624,14 @@ class GameController:
     def update(self):
         for bg in self.p1_battlegroups + self.p2_battlegroups:
             # print(f'checking battlegroup {bg}')
-            all_ships_destroyed = True
-            for group in bg.groups:
-                for ship in group:
-                    all_ships_destroyed = ship.state is ShipState.DESTROYED and all_ships_destroyed
-            if all_ships_destroyed:
-                print(f'all ships destroyed in {bg}, setting as destroyed')
-                bg.state = BattlegroupState.DESTROYED
+            if bg.state is not BattlegroupState.DESTROYED:
+                all_ships_destroyed = True
+                for group in bg.groups:
+                    for ship in group:
+                        all_ships_destroyed = ship.state is ShipState.DESTROYED and all_ships_destroyed
+                if all_ships_destroyed:
+                    print(f'all ships destroyed in {bg}, setting as destroyed')
+                    bg.state = BattlegroupState.DESTROYED
                 # try:
                 #     self.p1_battlegroups.remove(bg)
                 # except Exception:
@@ -631,13 +644,11 @@ class GameController:
         if 'Activate' in self.current_state:
             self.active_bg.update()
             if self.active_bg.state is BattlegroupState.ACTIVATED:
-                print('active battlegroup done, resolve queued attacks')
-                while not self.target_queue.is_empty():
-                    gun, target = self.target_queue.pop()
-                    result = gun.shoot(target)
-                    print(result)
-                    for line in result:
-                        self.combatlog.append(line)
+                # print('active battlegroup done, resolve queued attacks')
+                if not self.target_queue.is_empty():
+                    self.resolve_attacks = True
+                    return
+                self.resolve_attacks = False
                 
                 print('check if opposing battlegroup also activated')
                 try:
@@ -715,8 +726,8 @@ class GameController:
     
     def do_catastrophic_damage(self, explody_ship, explode_roll, explode_radius):
         out = []
-        out.append('Catastrophic damage result:')
         if explode_roll <= 2:
+            out.append('Catastrophic damage result:')
             out.append(f'Burn up')
             out.append(f'no ships affected')
             return out
@@ -741,6 +752,7 @@ class GameController:
         ship_list_str = ', '.join([ship.name for ship in ships_in_radius])
         out.append(f'{ship_list_str} affected')
 
+        out.append('Catastrophic damage result:')
         if explode_roll == 3:
             out.append(f'Blazing Wreck: apply minor spike')
             for ship in ships_in_radius:
@@ -754,7 +766,7 @@ class GameController:
             elif explode_roll == 5:
                 ex_hits = 2
                 ex_crits = 0
-                out.append(f'Explosion: 2 hit')
+                out.append(f'Explosion: 2 hits')
                 
             elif explode_roll == 6:
                 ex_hits = 0

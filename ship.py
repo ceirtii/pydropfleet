@@ -217,7 +217,7 @@ class Ship(pygame.sprite.Sprite):
     
     def update(self):
         if self.state is ShipState.FIRING:
-            print('checking if ship can fire guns')
+            # print('checking if ship can fire guns')
             # no_target_available = False
             fired_guns = 0
             pending_linked_guns = []
@@ -227,24 +227,27 @@ class Ship(pygame.sprite.Sprite):
             else:
                 max_fired_guns = 1
             for gun in self.guns:
-                print(f'testing gun {gun}')
-                print(f'gun has {gun.targetable_ships} targetable ships')
+                # print(f'testing gun {gun}')
+                # print(f'gun has {gun.targetable_ships} targetable ships')
                 # if gun.targetable_ships is not None:
                 # no_target_available = no_target_available or 
-                if gun.state is GunState.FIRED:
+                if gun.state is GunState.INACTIVE:
+                    # don't check, already inactive
+                    continue
+                elif gun.state is GunState.FIRED:
                     fired_guns = fired_guns + 1
-                    print('fired gun found, check if linked gun is valid')
+                    # print('fired gun found, check if linked gun is valid')
                     if gun.close_action:
-                        print('close action gun fired')
+                        # print('close action gun fired')
                         close_action_fired = True
                         fired_guns = fired_guns - 1
                     elif gun.linked_gun:
-                        print('found linked gun')
+                        # print('found linked gun')
                         if gun in pending_linked_guns:
-                            print('gun already checked through link')
+                            # print('gun already checked through link')
                             fired_guns = fired_guns - 1
                         else:
-                            print('new group of linked guns')
+                            # print('new group of linked guns')
                             pending_linked_guns.append(gun)
                             pending_linked_guns.append(gun.linked_gun)
 
@@ -267,11 +270,11 @@ class Ship(pygame.sprite.Sprite):
                     print('no targetable ships, disabling')
                     gun.state = GunState.INACTIVE
                     # break
-                elif gun.state is GunState.TARGETING and gun.close_action:
-                    print('close action gun not yet fired and has valid targets')
+                # elif gun.state is GunState.TARGETING and gun.close_action:
+                #     print('close action gun not yet fired and has valid targets')
                     # fired_guns = fired_guns - 1
             # check linked guns
-            print(f'{fired_guns} guns fired, max of {max_fired_guns}')
+            # print(f'{fired_guns} guns fired, max of {max_fired_guns}')
 
             fired_linked_gun_groups = int(len(pending_linked_guns)/2)
             if fired_guns + fired_linked_gun_groups >= max_fired_guns:
@@ -282,7 +285,7 @@ class Ship(pygame.sprite.Sprite):
 
             # after each gun checked, see if crossed max fired guns threshold
             if fired_guns == max_fired_guns:
-                print('max regular fired guns reached')
+                # print('max regular fired guns reached')
                 for gun in self.guns:
                     if not gun.close_action:
                         gun.state = GunState.INACTIVE
@@ -295,7 +298,7 @@ class Ship(pygame.sprite.Sprite):
             for gun in self.guns:
                 all_guns_inactive = all_guns_inactive and gun.state in [GunState.FIRED, GunState.INACTIVE]
             if all_guns_inactive:
-                print('all guns inactive')
+                # print('all guns inactive')
                 self.finish_activation()
 
                 # if no_target_available:
@@ -452,36 +455,43 @@ class Ship(pygame.sprite.Sprite):
         
         # check ded
         if self.hp < 1 and self.state is not ShipState.DESTROYED:
-            out.append(f'ship destroyed!')
-            self.hp = 0
-            self.state = ShipState.DESTROYED
-            self.battlegroup.update_sr()
-
-            # do catastrophic damage
-            if self.hull < 4:
-                out.append('ship too small for catastrophic damage')
-            else:
-                out.append('rolling for catastrophic damage')
-                explode_roll = random.randint(1,6)
-                
-                if self.hull < 7:
-                    explode_radius = random.randint(1,3)
-                else:
-                    explode_radius = random.randint(1,6)
-
-                if self.hull >= 10:
-                    explode_roll = explode_roll + 1
-
-                out.append(f'rolled {explode_roll}, radius {explode_radius}')
-                cata_damage = self.gamecontroller.do_catastrophic_damage(self, explode_roll, explode_radius)
-                for line in cata_damage:
-                    out.append(line)
-            
-            self.loc = (-1000, -1000)
-            self.rect = pygame.Rect(0,0,0,0)
+            destruction_out = self.on_destroy()
+            for line in destruction_out:
+                out.append(line)
         
         return out
     
+    def on_destroy(self):
+        out = []
+        out.append(f'ship destroyed!')
+        self.hp = 0
+        self.state = ShipState.DESTROYED
+        self.battlegroup.update_sr()
+
+        # do catastrophic damage
+        if self.hull < 4:
+            out.append('ship too small for catastrophic damage')
+        else:
+            out.append('rolling for catastrophic damage')
+            explode_roll = random.randint(1,6)
+            
+            if self.hull < 7:
+                explode_radius = random.randint(1,3)
+            else:
+                explode_radius = random.randint(1,6)
+
+            if self.hull >= 10:
+                explode_roll = explode_roll + 1
+
+            out.append(f'rolled {explode_roll}, radius {explode_radius}')
+            cata_damage = self.gamecontroller.do_catastrophic_damage(self, explode_roll, explode_radius)
+            for line in cata_damage:
+                out.append(line)
+        
+        self.loc = (-1000, -1000)
+        self.rect = pygame.Rect(0,0,0,0)
+        return out
+
     def draw_cohesion(self, surf):
         for neighbor_ship in self.group:
             if neighbor_ship is self:
@@ -505,15 +515,18 @@ class Ship(pygame.sprite.Sprite):
         surf.blit(tt_render, (x, y - tt_rect.height))
     
     def do_damage_control(self):
+        if self.state is ShipState.DESTROYED:
+            return
         out = []
         if self.fire:
             out.append('Fighting fires')
             result = random.randint(1,6)
             if result == 1:
                 out.append('Damage control critical failure')
-                self.hp = self.hp - 1
+                self.hp = self.hp - 2
             elif result <= 3:
                 out.append('Damage control failed')
+                self.hp = self.hp - 1
             else:
                 out.append('Fires mitigated')
                 self.fire = False
@@ -555,6 +568,11 @@ class Ship(pygame.sprite.Sprite):
                 out.append('Engines repaired')
                 self.engines_disabled = False
                 self.thrust = Ship.shipDB[self.shipclass]['thrust']
+        
+        if self.hp < 0:
+            destruction_out = self.on_destroy()
+            for line in destruction_out:
+                out.append(line)
         return out
 
 class ShipOrder(Enum):

@@ -153,7 +153,14 @@ while True:
 
                 elif gamecontroller.rect.collidepoint(event.pos):
                     print('mouse click on next turn button')
-                    if 'Select Player Order' not in gamecontroller.current_state:
+                    if gamecontroller.resolve_attacks:
+                        if not gamecontroller.target_queue.is_empty():
+                            gun, target = gamecontroller.target_queue.pop()
+                            result = gun.shoot(target)
+                            print(result)
+                            for line in result:
+                                combatlog.append(line)
+                    elif 'Select Player Order' not in gamecontroller.current_state:
                         gamecontroller.next_phase()
                         # infopanel.selectedship = None
 
@@ -465,7 +472,7 @@ while True:
 
     # show sectors
     if selectedship and selectedship.is_selected:
-        print('drawing arcs')
+        # print('drawing arcs')
         segments = [11.25,33.75,90,90,90,33.75]
         draw_dist = playarea.scalegridtopixel(selectedship.scan)
         if selectedship.selection_bearing:
