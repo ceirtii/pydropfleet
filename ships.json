@@ -310,5 +310,41 @@
     "pd": 3,
     "shiptype": "Frigate",
     "tonnage": "light"
+  },
+  {
+    "shipclass": "St Petersburg",
+    "faction": "UCM",
+    "scan": 6,
+    "sig": 6,
+    "thrust": 7,
+    "hull": 12,
+    "armor": 3,
+    "pd": 5,
+    "shiptype": "Heavy Cruiser",
+    "tonnage": "heavy"
+  },
+  {
+    "shipclass": "Kiev",
+    "faction": "UCM",
+    "scan": 6,
+    "sig": 4,
+    "thrust": 8,
+    "hull": 6,
+    "armor": 3,
+    "pd": 5,
+    "shiptype": "Heavy Destroyer",
+    "tonnage": "light2"
+  },
+  {
+    "shipclass": "San Francisco",
+    "faction": "UCM",
+    "scan": 6,
+    "sig": 6,
+    "thrust": 8,
+    "hull": 10,
+    "armor": 3,
+    "pd": 5,
+    "shiptype": "Troopship",
+    "tonnage": "medium"
   }
 ]

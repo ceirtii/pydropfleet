@@ -9,7 +9,7 @@ from ui import *
 from queue import Queue
 import random
 
-debug = False
+debug = True
 if not debug:
     sys.stdout = io.StringIO()
 
@@ -82,6 +82,8 @@ player1 = Player(1, playarea)
 player2 = Player(2, playarea)
 player1.gamecontroller = gamecontroller
 player2.gamecontroller = gamecontroller
+gamecontroller.player1 = player1
+gamecontroller.player2 = player2
 
 print('loading fleets')
 p1_fleetfile = open('p1.txt','r')
@@ -107,7 +109,8 @@ gamecontroller.p2_battlegroups = p2_fleetpanel.battlegroups
 selectedship = None
 hoveredship = None
 show_cohesion = True
-show_signature = False
+show_p1_sig = False
+show_p2_sig = False
 show_tooltip = True
 dragging = False
 targeting_ship = None
@@ -349,7 +352,16 @@ while True:
                 show_cohesion = not show_cohesion
 
             if event.key == pygame.K_s:
-                show_signature = not show_signature
+                if not show_p1_sig and not show_p2_sig:
+                    show_p1_sig = True
+                elif show_p1_sig:
+                    show_p1_sig = False
+                    show_p2_sig = True
+                elif show_p2_sig:
+                    show_p2_sig = False
+                else:
+                    print('how did you get here?')
+                    raise Exception
 
             if event.key == pygame.K_q:
                 if selectedship and selectedship.state is ShipState.SETUP:
@@ -466,21 +478,11 @@ while True:
                 player1.ships.remove(ship)
             if ship in player2.ships:
                 player2.ships.remove(ship)
-        if show_signature:
-            # if ship.player == 1:
-            #     sig_color = NordColors.frost3
-            # else:
-            #     sig_color = NordColors.aurora4
-            if gamecontroller.active_bg:
-                if gamecontroller.active_bg.player is player1 and ship in player1.ships:
-                    continue
-                if gamecontroller.active_bg.player is player2 and ship in player2.ships:
-                    continue
-            x, y = ship.rect.center
-            sig_color = NordColors.aurora4
-            sig = playarea.scalegridtopixel(ship.active_sig)
-            alpha = (64,)
-            pygame.gfxdraw.filled_circle(DISPLAYSURF,x,y,sig,sig_color+alpha)
+
+        if show_p1_sig and ship in player1.ships:
+            ship.draw_sig(DISPLAYSURF)
+        if show_p2_sig and ship in player2.ships:
+            ship.draw_sig(DISPLAYSURF)
 
         if ship.panel_rect.collidepoint(mousepos) or ship.rect.collidepoint(mousepos):
             if show_tooltip and ship.rect.collidepoint(mousepos):
@@ -606,7 +608,7 @@ while True:
         r1 = playarea.scalegridtopixel(minthrust)
         r2 = playarea.scalegridtopixel(maxthrust)
         t1 = math.radians((selectedship.bearing + 45) % 360)
-        t2 = math.radians((selectedship.bearing - 225) % 360)
+        t2 = t1 + math.pi/2
         ship_x = playarea.gridtopixel(selectedship.loc)[0]
         ship_y = playarea.gridtopixel(selectedship.loc)[1]
         fill_sector(DISPLAYSURF, (ship_x, ship_y), r1, r2, t1, t2, NordColors.frost0 + (96,))

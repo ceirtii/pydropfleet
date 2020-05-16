@@ -148,5 +148,18 @@
     "attack": "3",
     "damage": "1",
     "close_action": true
+  },
+  {
+    "guntype": "UF-9000 Twin Mass Driver",
+    "lock": "3",
+    "attack": "2",
+    "damage": "2"
+  },
+  {
+    "guntype": "Barracuda-S Missile Bays",
+    "lock": "4",
+    "attack": "3",
+    "damage": "1",
+    "close_action": true
   }
 ]

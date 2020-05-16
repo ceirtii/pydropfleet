@@ -1,15 +1,16 @@
 --------------------------------------
-ucm starter - 534pts
-UCM - 3 launch assets
+ucm 750 starter+ - 721pts
+UCM - 7 launch assets
 
-SR5 Line battlegroup (132pts)
-1 x Seattle - 132pts - M
-
-SR12 Vanguard battlegroup (227pts)
-1 x Moscow - 163pts - H
-2 x New Orleans - 64pts - L
+SR12 Vanguard battlegroup (220pts)
+1 x Taipei - 156pts - L
 
 SR7 Line battlegroup (175pts)
-1 x Berlin - 105pts - M
-2 x Toulon - 70pts - L
+1 x Toulon - 70pts - L
+
+SR7 Pathfinder battlegroup (196pts)
+1 x Taipei - 156pts - L
+
+SR4 Pathfinder battlegroup (110pts)
+1 x Toulon - 70pts - L
 ------------- dflist.com ------------- 

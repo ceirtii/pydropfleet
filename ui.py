@@ -180,7 +180,7 @@ class FleetPanel:
                     else:
                         layer_str = 'ATMO'
                     layer_str_width = self.minor_font.size(layer_str)[0]
-                    layer_render = self.minor_font.render(layer_str, True, ship_font_color)
+                    layer_render = self.minor_font.render(layer_str, True, NordColors.snow0)
                     box_height = line_height+2*minor_height+buffer
                     
                     ship.panel_rect.left = 1.5*buffer
@@ -383,8 +383,27 @@ class Battlegroup:
         self.sr = sr
         return sr
     
+    def check_destroyed(self):
+        if self.state is BattlegroupState.DESTROYED:
+            return True
+        all_ships_destroyed = True
+        for group in self.groups:
+            for ship in group:
+                all_ships_destroyed = ship.state is ShipState.DESTROYED and all_ships_destroyed
+        if all_ships_destroyed:
+            # if bg in self.p1_bg_queue:
+            #     self.p1_bg_queue.remove(bg)
+            # if bg in self.p2_bg_queue:
+            #     self.p2_bg_queue.remove(bg)
+            print(f'all ships destroyed in {self}, setting as destroyed')
+            self.state = BattlegroupState.DESTROYED
+        return all_ships_destroyed
+    
 class ShipGroup:
     def __init__(self):
+        self.group = []
+    
+    def get_ships(self):
         pass
 
 class BattlegroupPlanner:
@@ -451,6 +470,8 @@ class GameController:
         self.minor_font = minor_font
         self.p1_battlegroups = []
         self.p2_battlegroups = []
+        self.p1_bg_queue = []
+        self.p2_bg_queue = []
         self.player_phase = None
         self.bg_plan_screen = None
         self.round = 1
@@ -462,6 +483,8 @@ class GameController:
         self.target_queue = None
         self.turn = 1
         self.resolve_attacks = False
+        self.player1 = None
+        self.player2 = None
         # self.needs_update = True
         # self.activation_queue = Queue()
     
@@ -516,6 +539,11 @@ class GameController:
             surf.blit(p2_button_render,p2_button_loc)
     
     def next_phase(self, next_player=None):
+        p1_str = ', '.join([str(bg) for bg in self.p1_bg_queue])
+        p2_str = ', '.join([str(bg) for bg in self.p2_bg_queue])
+        print(f'p1 bg queue: {p1_str}')
+        print(f'p2 bg queue: {p2_str}')
+
         if self.resolve_attacks:
             while not self.target_queue.is_empty():
                 gun, target = self.target_queue.pop()
@@ -547,34 +575,49 @@ class GameController:
                                     continue
                                 ship.state = ShipState.NOT_YET_ACTIVATED
                         index = index + 1
-            self.bg_plan_screen = BattlegroupPlanner(self.p1_battlegroups, self.major_font, self.minor_font)
+            for bg in self.p1_battlegroups:
+                self.p1_bg_queue.append(bg)
+            self.bg_plan_screen = BattlegroupPlanner(self.p1_bg_queue, self.major_font, self.minor_font)
 
         elif self.current_state == 'Planning (P1)':
             print(f'player 1 finished planning, player 2 plan battlegroup activation order')
-            self.bg_plan_screen.bgs = self.p2_battlegroups
+            for bg in self.p2_battlegroups:
+                self.p2_bg_queue.append(bg)
+            self.bg_plan_screen.bgs = self.p2_bg_queue
             self.current_state = 'Planning (P2)'
 
         elif self.current_state == 'Planning (P2)' or 'Activate Battlegroup' in self.current_state:
             print(f'activate first battlegroup in round {self.round}')
             self.current_state = f'Turn {self.turn}: Select Player Order'
-            index = self.round-1
-            print(f'checking battlegroups at index {index}')
+            # index = self.round-1
+            # print(f'checking battlegroups at index {index}')
             print(f'player 1 battlegroups contains {len(self.p1_battlegroups)} bgs')
             print(f'player 2 battlegroups contains {len(self.p2_battlegroups)} bgs')
 
-            if index >= len(self.p1_battlegroups) and index >= len(self.p2_battlegroups):
+            if not self.p1_bg_queue and not self.p2_bg_queue:
                 print('all battlegroups activated, turn roundup')
+
+                print('removing destroyed battlegroups')
+                self.combatlog.append('removing destroyed battlegroups')
+                for bg in self.p1_battlegroups + self.p2_battlegroups:
+                    bg_destroyed = bg.check_destroyed()
+                    if bg_destroyed:
+                        print(f'battlegroup {bg} destroyed!')
+                        self.combatlog.append(f'battlegroup {bg} destroyed!')
+                
                 self.combatlog.append('all battlegroups activated, turn roundup')
                 self.current_state = f'Turn {self.turn}: Roundup (Ground Combat)'
                 self.turn = self.turn + 1
                 self.round = 1
 
-            elif index < len(self.p1_battlegroups) and index < len(self.p2_battlegroups):
+            elif self.p1_bg_queue and self.p2_bg_queue:
                 print('battlegroups left to activate')
-                p1_sr = self.p1_battlegroups[index].sr
-                self.p1_battlegroups[index].state = BattlegroupState.ACTIVE
-                p2_sr = self.p2_battlegroups[index].sr
-                self.p2_battlegroups[index].state = BattlegroupState.ACTIVE
+                p1_sr = self.p1_bg_queue[0].sr
+                self.p1_bg_queue[0].state = BattlegroupState.ACTIVE
+
+                p2_sr = self.p2_bg_queue[0].sr
+                self.p2_bg_queue[0].state = BattlegroupState.ACTIVE
+
                 if p1_sr == p2_sr:
                     self.firstplayer = random.choice([1,2])
                     self.combatlog.append(f'Battlegroups have same strategy rating, player {self.firstplayer} picks')
@@ -585,16 +628,20 @@ class GameController:
                         self.firstplayer = 2
                     self.combatlog.append(f'Player {self.firstplayer} picks, has lower strategy rating {min(p1_sr, p2_sr)}')
 
-            elif index >= len(self.p1_battlegroups):
+            elif self.p2_bg_queue:
                 print(f'p1 battlegroups all activated, continue activating player 2 battlegroups')
-                for bg in self.p2_battlegroups[index:]:
-                    bg.state = BattlegroupState.PENDING_ACTIVATION
+                self.active_bg = self.p2_bg_queue[0]
+                self.active_bg.activate()
+                # for bg in self.p2_bg_queue:
+                #     bg.state = BattlegroupState.PENDING_ACTIVATION
                 self.current_state = f'Turn {self.turn}: P2 Activate Battlegroup'
 
-            elif index >= len(self.p2_battlegroups):
+            elif self.p1_bg_queue:
                 print(f'p2 battlegroups all activated, continue activating player 1 battlegroups')
-                for bg in self.p1_battlegroups[index:]:
-                    bg.state = BattlegroupState.PENDING_ACTIVATION
+                self.active_bg = self.p1_bg_queue[0]
+                self.active_bg.activate()
+                # for bg in self.p1_bg_queue:
+                #     bg.state = BattlegroupState.PENDING_ACTIVATION
                 self.current_state = f'Turn {self.turn}: P2 Activate Battlegroup'
             else:
                 print('how did you get here?')
@@ -630,11 +677,11 @@ class GameController:
         elif 'Select Player Order' in self.current_state:
             self.current_state = f'Turn {self.turn}: P{next_player} Activate Battlegroup'
             if next_player == 1:
-                self.p2_battlegroups[self.round-1].state = BattlegroupState.PENDING_ACTIVATION
-                self.active_bg = self.p1_battlegroups[self.round-1]
+                self.p2_bg_queue[0].state = BattlegroupState.PENDING_ACTIVATION
+                self.active_bg = self.p1_bg_queue[0]
             elif next_player == 2:
-                self.p1_battlegroups[self.round-1].state = BattlegroupState.PENDING_ACTIVATION
-                self.active_bg = self.p2_battlegroups[self.round-1]
+                self.p1_bg_queue[0].state = BattlegroupState.PENDING_ACTIVATION
+                self.active_bg = self.p2_bg_queue[0]
             else:
                 print('how did you get here?')
                 raise Exception
@@ -644,16 +691,8 @@ class GameController:
         # print(f'now on phase {self.current_state}')
     
     def update(self):
-        for bg in self.p1_battlegroups + self.p2_battlegroups:
+        # for bg in self.p1_battlegroups + self.p2_battlegroups:
             # print(f'checking battlegroup {bg}')
-            if bg.state is not BattlegroupState.DESTROYED:
-                all_ships_destroyed = True
-                for group in bg.groups:
-                    for ship in group:
-                        all_ships_destroyed = ship.state is ShipState.DESTROYED and all_ships_destroyed
-                if all_ships_destroyed:
-                    print(f'all ships destroyed in {bg}, setting as destroyed')
-                    bg.state = BattlegroupState.DESTROYED
                 # try:
                 #     self.p1_battlegroups.remove(bg)
                 # except Exception:
@@ -672,70 +711,168 @@ class GameController:
                     return
                 self.resolve_attacks = False
                 
-                print('check if opposing battlegroup also activated')
-                try:
+                # try:
                     # while self.p1_battlegroups[self.round-1].state is BattlegroupState.DESTROYED:# and self.p1_battlegroups[self.round]:
                     #     print(f'removing destroyed battlegroup {self.p1_battlegroups[self.round-1]}')
                     #     self.p1_battlegroups.pop(self.round-1)
                         # self.p1_battlegroups[self.round-1].state = BattlegroupState.PENDING_ACTIVATION
-                    p1_activated = self.p1_battlegroups[self.round-1].state is BattlegroupState.ACTIVATED
-                except IndexError:
-                    p1_activated = True
+                # except IndexError:
+                #     p1_activated = True
 
-                try:
+                # try:
                     # while self.p2_battlegroups[self.round-1].state is BattlegroupState.DESTROYED:# and self.p2_battlegroups[self.round]:
                     #     print(f'removing destroyed battlegroup {self.p2_battlegroups[self.round-1]}')
                     #     self.p2_battlegroups.pop(self.round-1)
                         # self.p2_battlegroups[self.round-1].state = BattlegroupState.PENDING_ACTIVATION
-                    p2_activated = self.p2_battlegroups[self.round-1].state is BattlegroupState.ACTIVATED
-                except IndexError:
-                    p2_activated = True
+                # except IndexError:
+                #     p2_activated = True
 
-                if p1_activated and p2_activated:
-                    print('both active battlegroups activated, do next round')
-                    self.round = self.round + 1
-                    self.next_phase()
-                    return
+                print('remove all destroyed battlegroups')
+                print('checking player 1')
+                index = 0
+                while index < len(self.p1_bg_queue):
+                    bg = self.p1_bg_queue[index]
+                    if bg.state is BattlegroupState.PENDING_ACTIVATION:
+                        if bg.check_destroyed():
+                            print('battlegroup pending activation has been destroyed! removing this battlegroup and activating next available battlegroup')
+                            self.p1_bg_queue.pop(index)
+                            try:
+                                next_bg = self.p1_bg_queue[index]
+                                print('make sure next battlegroup can be activated')
+                                if next_bg.state is BattlegroupState.NOT_YET_ACTIVE:
+                                    next_bg.state = BattlegroupState.PENDING_ACTIVATION
+                            except IndexError:
+                                print('no next battlegroup to activate')
+                                break
+                        else:
+                            print('battlegroup pending activation not destroyed')
+                            index = index + 1
+                    elif bg.check_destroyed():
+                            print('battlegroup destroyed! removing from activation queue')
+                            self.p1_bg_queue.pop(index)
+                    else:
+                        print('battlegroup not destroyed')
+                        index = index + 1
 
-                print('activate other pending battlegroup')
-                try:
-                    while self.p1_battlegroups[self.round-1].state is BattlegroupState.DESTROYED:
-                        print(f'removing destroyed battlegroup {self.p1_battlegroups[self.round-1]}')
-                        self.p1_battlegroups.pop(self.round-1)
-                        # self.p1_battlegroups[self.round-1].state = BattlegroupState.PENDING_ACTIVATION
-                    p1_pending = self.p1_battlegroups[self.round-1].state is BattlegroupState.PENDING_ACTIVATION
-                    p1_pending = p1_pending or self.p1_battlegroups[self.round-1].state is BattlegroupState.NOT_YET_ACTIVE
-                except IndexError:
-                    p1_pending = False
-                try:
-                    while self.p2_battlegroups[self.round-1].state is BattlegroupState.DESTROYED:
-                        print(f'removing destroyed battlegroup {self.p2_battlegroups[self.round-1]}')
-                        self.p2_battlegroups.pop(self.round-1)
-                        # self.p2_battlegroups[self.round-1].state = BattlegroupState.PENDING_ACTIVATION
-                    p2_pending = self.p2_battlegroups[self.round-1].state is BattlegroupState.PENDING_ACTIVATION
-                    p2_pending = p2_pending or self.p2_battlegroups[self.round-1].state is BattlegroupState.NOT_YET_ACTIVE
-                except IndexError:
-                    p2_pending = False
+                print('checking player 2')
+                index = 0
+                while index < len(self.p2_bg_queue):
+                    bg = self.p2_bg_queue[index]
+                    print(f'checking {bg}')
+                    if bg.state is BattlegroupState.PENDING_ACTIVATION:
+                        print(f'battlegroup pending activation')
+                        if bg.check_destroyed():
+                            print('battlegroup pending activation has been destroyed! removing this battlegroup and activating next available battlegroup')
+                            self.p2_bg_queue.pop(index)
+                            try:
+                                next_bg = self.p2_bg_queue[index]
+                                print('make sure next battlegroup can be activated')
+                                if next_bg.state is BattlegroupState.NOT_YET_ACTIVE:
+                                    next_bg.state = BattlegroupState.PENDING_ACTIVATION
+                            except IndexError:
+                                print('no next battlegroup to activate')
+                                break
+                        else:
+                            print('battlegroup pending activation not destroyed')
+                            index = index + 1
+                    elif bg.check_destroyed():
+                            print('battlegroup destroyed! removing from activation queue')
+                            self.p2_bg_queue.pop(index)
+                    else:
+                        print('battlegroup not destroyed')
+                        index = index + 1
 
-                print(f'p1_pending={p1_pending}, p2_pending={p2_pending}')
-                if p1_pending:
-                    print(f'player 1 has pending battlegroup {self.p1_battlegroups[self.round-1]}')
-                    self.active_bg = self.p1_battlegroups[self.round-1]
-                    next_player = 1
-                elif p2_pending:
-                    print(f'player 2 has pending battlegroup {self.p2_battlegroups[self.round-1]}')
-                    self.active_bg = self.p2_battlegroups[self.round-1]
-                    next_player = 2
+                print('check if opposing battlegroup exists')
+                if self.active_bg.player is self.player1:
+                    if not self.p2_bg_queue:
+                        print('player 2 queue empty, continuing player 1 activations')
+                        self.p1_bg_queue.pop(0)
+                        self.round = self.round + 1
+                        self.next_phase()
+                        return
+
+                elif self.active_bg.player is self.player2:
+                    if not self.p1_bg_queue:
+                        print('player 1 queue empty, continuing player 2 activations')
+                        self.p2_bg_queue.pop(0)
+                        self.round = self.round + 1
+                        self.next_phase()
+                        return
+                
                 else:
-                    print("no pending battlegroups, do next round")
+                    print('how did you get here?')
+                    raise Exception
+
+                print('opposing battlegroup exists, check if opposing battlegroup also activated')
+                if self.active_bg.player is self.player1:
+                    other_activated = self.p2_bg_queue[0].state is BattlegroupState.ACTIVATED
+
+                elif self.active_bg.player is self.player2:
+                    other_activated = self.p1_bg_queue[0].state is BattlegroupState.ACTIVATED
+                
+                else:
+                    print('how did you get here?')
+                    raise Exception
+
+                if other_activated:
+                    print('both active battlegroups activated, do next round')
+                    self.p1_bg_queue.pop(0)
+                    self.p2_bg_queue.pop(0)
                     self.round = self.round + 1
                     self.next_phase()
                     return
+
+                print('opposing battlegroup exists but is not activated, activate next pending battlegroup')
+                if self.active_bg.player is self.player1:
+                    next_player = 2
+                    self.active_bg = self.p2_bg_queue[0]
+
+                elif self.active_bg.player is self.player2:
+                    next_player = 1
+                    self.active_bg = self.p1_bg_queue[0]
+                
+                else:
+                    print('how did you get here?')
+                    raise Exception
 
                 self.current_state = f'Turn {self.turn}: P{next_player} Activate Battlegroup'
                 self.active_bg.activate()
                 self.combatlog.append(f'activating {self.active_bg}')
     
+                # try:
+                #     while self.p1_bg_queue[0].state is BattlegroupState.DESTROYED:
+                #         print(f'removing destroyed battlegroup {self.p1_bg_queue[0]}')
+                #         self.p1_bg_queue.pop(0)
+                #         # self.p1_battlegroups[self.round-1].state = BattlegroupState.PENDING_ACTIVATION
+                #     p1_pending = self.p1_battlegroups[self.round-1].state is BattlegroupState.PENDING_ACTIVATION
+                #     p1_pending = p1_pending or self.p1_battlegroups[self.round-1].state is BattlegroupState.NOT_YET_ACTIVE
+                # except IndexError:
+                #     p1_pending = False
+                # try:
+                #     while self.p2_battlegroups[self.round-1].state is BattlegroupState.DESTROYED:
+                #         print(f'removing destroyed battlegroup {self.p2_battlegroups[self.round-1]}')
+                #         self.p2_battlegroups.pop(self.round-1)
+                #         # self.p2_battlegroups[self.round-1].state = BattlegroupState.PENDING_ACTIVATION
+                #     p2_pending = self.p2_battlegroups[self.round-1].state is BattlegroupState.PENDING_ACTIVATION
+                #     p2_pending = p2_pending or self.p2_battlegroups[self.round-1].state is BattlegroupState.NOT_YET_ACTIVE
+                # except IndexError:
+                #     p2_pending = False
+
+                # print(f'p1_pending={p1_pending}, p2_pending={p2_pending}')
+                # if p1_pending:
+                #     print(f'player 1 has pending battlegroup {self.p1_battlegroups[self.round-1]}')
+                #     self.active_bg = self.p1_battlegroups[self.round-1]
+                #     next_player = 1
+                # elif p2_pending:
+                #     print(f'player 2 has pending battlegroup {self.p2_battlegroups[self.round-1]}')
+                #     self.active_bg = self.p2_battlegroups[self.round-1]
+                #     next_player = 2
+                # else:
+                #     print("no pending battlegroups, do next round")
+                #     self.round = self.round + 1
+                #     self.next_phase()
+                #     return
+
     def ship_selectable(self):
         return self.current_state == 'Setup' or 'Activate' in self.current_state
     
@@ -859,7 +996,7 @@ class Player:
             elif line[0].isdigit():
                 vals = line.split()
                 # print(vals)
-                if vals[2] == 'New':
+                if vals[2] in ['New', 'St', 'San']:
                     vals[2] = f'{vals[2]} {vals[3]}'
                     vals.pop(3)
                 # print(vals[2])

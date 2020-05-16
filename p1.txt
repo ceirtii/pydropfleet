@@ -1,15 +1,16 @@
 --------------------------------------
-phr starter - 532pts
-PHR - 2 launch assets
+phr 750 starter+ - 736pts
+PHR - 4 launch assets
 
-SR10 Vanguard battlegroup (170pts)
-1 x Hector - 170pts - H
+SR5 Line battlegroup (130pts)
+1 x Pandora - 100pts - L
 
 SR7 Line battlegroup (193pts)
-1 x Ikarus - 115pts - M
-2 x Medea - 78pts - L
+1 x Europa - 120pts - L
 
-SR7 Line battlegroup (169pts)
-1 x Theseus - 89pts - M
-2 x Europa - 80pts - L
+SR7 Pathfinder battlegroup (193pts)
+1 x Pandora - 100pts - L
+
+SR5 Pathfinder battlegroup (220pts)
+1 x Europa - 120pts - L
 ------------- dflist.com ------------- 

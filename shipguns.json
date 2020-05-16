@@ -112,7 +112,35 @@
     {"shipclass":"Toulon",
         "weapons":[
             {"guntype": "UF-2200 Mass Driver Turret", "arc": "F/S"},
-            {"guntype": "Barracuda Missile Bays", "arc": "F/S/R"}],
+            {"guntype": "Barracuda Missile Bays", "arc": "F/S/R"}
+        ],
         "launch":[]
+    },
+    {"shipclass":"St Petersburg",
+        "weapons":[
+            {"guntype": "UF-4200 Mass Driver Turret", "arc": "F/S(L)"},
+            {"guntype": "UF-4200 Mass Driver Turret", "arc": "F/S(R)"},
+            {"guntype": "Shark Missile Bays", "arc": "F/S/R"},
+            {"guntype": "Cobra Heavy Laser", "arc": "F(N)"},
+            {"guntype": "Cobra Heavy Laser", "arc": "F(N)"}
+        ],
+        "launch":[]
+    },
+    {"shipclass":"Kiev",
+        "weapons":[
+            {"guntype": "UF-9000 Twin Mass Driver", "arc": "F"},
+            {"guntype": "Barracuda-S Missile Bays", "arc": "F/S/R"}
+        ],
+        "launch":[]
+    },
+    {"shipclass":"San Francisco",
+        "weapons":[
+            {"guntype": "UF-4200 Mass Driver Turret", "arc": "F/S(L)"},
+            {"guntype": "UF-4200 Mass Driver Turret", "arc": "F/S(R)"},
+            {"guntype": "Barracuda Missile Bays", "arc": "F/S/R"}
+        ],
+        "launch":[
+            {"launchtype": "Bulk Lander", "count": "2"}
+        ]
     }
     ]

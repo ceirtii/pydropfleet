@@ -536,7 +536,7 @@ class Ship(pygame.sprite.Sprite):
                 out.append('Damage control failed')
                 self.hp = self.hp - 1
             else:
-                out.append('Fires mitigated')
+                out.append('Fires extinguished')
                 self.fire = False
 
         if self.energy_surge:
@@ -604,6 +604,13 @@ class Ship(pygame.sprite.Sprite):
         if self.energy_surge:
             out.append('Energy surge')
         return out
+    
+    def draw_sig(self, surf):
+        x, y = self.rect.center
+        sig_color = NordColors.aurora4
+        sig = self.playarea.scalegridtopixel(self.active_sig)
+        alpha = (64,)
+        pygame.gfxdraw.filled_circle(surf,x,y,sig,sig_color+alpha)
 
 class ShipOrder(Enum):
     STANDARD = auto()
