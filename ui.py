@@ -120,7 +120,7 @@ class FleetPanel:
         self.surf = None
         self.content_height = 0
         self.needs_update = True
-        self.orbital_layer_mask = pygame.image.load('light hatch cropped.png').convert_alpha()
+        # self.orbital_layer_mask = pygame.image.load('light hatch cropped.png').convert_alpha()
         # self.buffer = 10
     
     def draw(self, surf):
