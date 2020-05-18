@@ -70,15 +70,31 @@ class Ship(pygame.sprite.Sprite):
                 gun_obj.count = int(gun['count'])
             self.guns.append(gun_obj)
         
-        self.launch = []
+        self.torpedoes = None
+        self.fighters = None
+        self.bombers = None
+        self.dropships = None
+        self.bulk_landers = None
         try:
             Ship.shiplaunchDB[self.shipclass]
         except KeyError:
             print('ship does not have launch assets')
         else:
             for launch in Ship.shiplaunchDB[self.shipclass]:
-                launch_asset = LaunchAsset(self.faction, launch['launchtype'], launch['count'])
-                self.launch.append(launch_asset)
+                if launch['launchtype'] == 'Fighters & Bombers':
+                    launch_asset = LaunchAsset(self, self.faction, 'Fighter', launch['count'])
+                    self.fighters = launch_asset
+                    launch_asset = LaunchAsset(self, self.faction, 'Bomber', launch['count'])
+                    self.bombers = launch_asset
+                else:
+                    launch_asset = LaunchAsset(self, self.faction, launch['launchtype'], launch['count'])
+
+                if launch['launchtype'] == 'Dropships':
+                    self.dropships = launch_asset
+                elif launch['launchtype'] == 'Torpedo':
+                    self.torpedoes = launch_asset
+                elif launch['launchtype'] == 'Bulk Lander':
+                    self.bulk_landers = launch_asset
 
         self.image0 = pygame.image.load(imagepath).convert_alpha()
         self.scale = .05
@@ -118,6 +134,7 @@ class Ship(pygame.sprite.Sprite):
         self.can_turn = True
         self.moving_up = False
         self.moving_down = False
+        self.active_launch_assets = 0
         
         self.crippled = False
         # crippled effects
@@ -342,7 +359,7 @@ class Ship(pygame.sprite.Sprite):
             if self.active_sig > self.sig:
                 print('standard order, removing minor spike')
                 self.remove_spike(1)
-        if self.order is ShipOrder.WEAPONSFREE:
+        elif self.order is ShipOrder.WEAPONSFREE:
             print('weapons free, adding major spike')
             self.apply_spike(2)
     
@@ -721,6 +738,9 @@ class Ship(pygame.sprite.Sprite):
     #     elif self.moving_up:
     #         print('draw moving up indicator')
     #     return
+
+    def launch_range(self, ships):
+        return
 
 if __name__ == "__main__":
     Ship.load_shipDB()

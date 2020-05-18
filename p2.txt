@@ -1,16 +1,7 @@
 --------------------------------------
-ucm 750 starter+ - 721pts
-UCM - 7 launch assets
+ucm starter - 534pts
+UCM - 3 launch assets
 
-SR12 Vanguard battlegroup (220pts)
-1 x Taipei - 156pts - L
-
-SR7 Line battlegroup (175pts)
-1 x Toulon - 70pts - L
-
-SR7 Pathfinder battlegroup (196pts)
-1 x Taipei - 156pts - L
-
-SR4 Pathfinder battlegroup (110pts)
-1 x Toulon - 70pts - L
+SR5 Line battlegroup (132pts)
+1 x Seattle - 132pts - M
 ------------- dflist.com ------------- 

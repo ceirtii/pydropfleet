@@ -1,0 +1,38 @@
+[
+    {
+        "faction":"UCM", 
+        "launch_assets":[
+            {"launch_type":"Fighter", "thrust":20, "pd":3},
+            {"launch_type":"Bomber", "thrust":12, "attack":2, "lock":3, "damage":1},
+            {"launch_type":"Dropship", "thrust":3},
+            {"launch_type":"Bulk Lander", "thrust":6}
+        ]
+    },
+    {
+        "faction":"PHR", 
+        "launch_assets":[
+            {"launch_type":"Fighter", "thrust":20, "pd":4},
+            {"launch_type":"Bomber", "thrust":12, "attack":2, "lock":2, "damage":1},
+            {"launch_type":"Dropship", "thrust":3},
+            {"launch_type":"Bulk Lander", "thrust":6}
+        ]
+    },
+    {
+        "faction":"Scourge", 
+        "launch_assets":[
+            {"launch_type":"Fighter", "thrust":24, "pd":3},
+            {"launch_type":"Bomber", "thrust":15, "attack":2, "lock":3, "damage":1, "scald":true},
+            {"launch_type":"Dropship", "thrust":3},
+            {"launch_type":"Bulk Lander", "thrust":6}
+        ]
+    },
+    {
+        "faction":"Shaltari", 
+        "launch_assets":[
+            {"launch_type":"Fighter", "thrust":24, "pd":4},
+            {"launch_type":"Bomber", "thrust":15, "attack":2, "lock":3, "damage":1},
+            {"launch_type":"Dropship", "thrust":3},
+            {"launch_type":"Bulk Lander", "thrust":6}
+        ]
+    }
+]

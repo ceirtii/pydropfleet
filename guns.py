@@ -264,11 +264,46 @@ class Weapon:
             result.append(line)
         return result
 
-class LaunchAsset():
-    def __init__(self, faction, launch_type, count):
+class LaunchAsset:
+    launchDB = dict()
+    def __init__(self, ship, faction, launch_type, count):
+        self.ship = ship
         self.faction = faction
         self.launch_type = launch_type
         self.count = count
+        # self.launched_count = 0
+        # self.launching_count = 0
+        self.squadrons = []
+        for i in range(count):
+            self.squadrons.append(Squadron(ship, faction, launch_type))
+            print(f'adding {faction} {launch_type}')
+    
+    @staticmethod
+    def load_launchDB():
+        launch_file = open('launch.json')
+        launch_reader = json.load(launch_file)
+        for row in launch_reader:
+            faction = row['faction']
+            LaunchAsset.launchDB[faction] = row['launch_assets']
+        # print(LaunchAsset.launchDB)
+
+class Squadron:
+    def __init__(self, ship, faction, launch_type):
+        self.ship = ship
+        self.faction = faction
+        self.launch_type = launch_type
+        self.highlight = False
+        self.rect = pygame.Rect(0,0,0,0)
+
+    def draw(self, surf):
+        return
+
+    def __str__(self):
+        return f'{self.faction} {self.launch_type}'
+    
+    def get_targets(self, ships):
+        return
 
 if __name__ == "__main__":
     Weapon.load_gunDB()
+    LaunchAsset.load_launchDB()

@@ -29,6 +29,7 @@ class ShipState(Enum):
     ACTIVATED = auto()
     NOT_YET_ACTIVATED = auto()
     DESTROYED = auto()
+    LAUNCHING = auto()
 
 class OrbitalLayer(Enum):
     HIGH_ORBIT = auto()
