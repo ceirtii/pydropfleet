@@ -285,7 +285,7 @@ class LaunchAsset:
         for row in launch_reader:
             faction = row['faction']
             LaunchAsset.launchDB[faction] = row['launch_assets']
-        # print(LaunchAsset.launchDB)
+        print(LaunchAsset.launchDB)
 
 class Squadron:
     def __init__(self, ship, faction, launch_type):
@@ -294,6 +294,34 @@ class Squadron:
         self.launch_type = launch_type
         self.highlight = False
         self.rect = pygame.Rect(0,0,0,0)
+        self.launched = False
+
+        if not LaunchAsset.launchDB:
+            LaunchAsset.load_launchDB()
+        faction_launch_types = LaunchAsset.launchDB[faction]
+        # print(faction_launch_types)
+        data = None
+        for row in faction_launch_types:
+            # print(f'checking {row}')
+            if row['launch_type'] == launch_type:
+                # row.pop('launch_type')
+                data = row
+                break
+        if not data:
+            print(f'launch type {launch_type} not found')
+            raise Exception
+
+        self.thrust = data['thrust']
+
+        if launch_type == 'Fighter':
+            self.pd = data['pd']
+            print(f'adding fighter with pd {self.pd}')
+
+        elif launch_type == 'Bomber':
+            self.lock = data['lock']
+            self.attack = data['attack']
+            self.damage = data['damage']
+            print(f'adding bomber with lock={self.lock}, attack={self.attack}, damage={self.damage}')
 
     def draw(self, surf):
         return
@@ -302,7 +330,21 @@ class Squadron:
         return f'{self.faction} {self.launch_type}'
     
     def get_targets(self, ships):
-        return
+        out = []
+        source_loc = self.ship.loc
+        for ship in ships:
+            target_loc = ship.loc
+            dist = math.dist(source_loc, target_loc)
+            if dist < self.thrust:
+                # print(f'ship {str(ship)} within thrust range')
+                out.append(ship)
+            elif dist < self.thrust * 2:
+                # print(f'ship {str(ship)} within 2x thrust range')
+                out.append(ship)
+            else:
+                # print(f'ship {str(ship)} outside strike range')
+                pass
+        return out
 
 if __name__ == "__main__":
     Weapon.load_gunDB()

@@ -77,14 +77,14 @@ ui.append(targetqueue)
 gamecontroller.target_queue = targetqueue
 
 print('initializing squadron panel')
-squadronpanel = SquadronPanel(minor_font)
+squadronpanel = SquadronPanel(minor_font, playarea)
 ui.append(squadronpanel)
 # gamecontroller.target_queue = targetqueue
 
 print('initializing launch queue')
 launchqueue = LaunchQueue(minor_font)
 ui.append(launchqueue)
-# gamecontroller.target_queue = launchqueue
+gamecontroller.launch_queue = launchqueue
 
 print('initializing players')
 player1 = Player(1, playarea)
@@ -152,7 +152,7 @@ while True:
         elif event.type == MOUSEBUTTONDOWN:
             if event.button == 1:
                 print(f'mouse click at {event.pos}')
-                if targetpanel.rect.collidepoint(event.pos):
+                if targetpanel.active and targetpanel.rect.collidepoint(event.pos):
                     print('mouse click on target panel')
                     if targetpanel.active and targetpanel.gun.state is GunState.TARGETING:
                         for index, rect in enumerate(targetpanel.target_rect_list):
@@ -163,12 +163,19 @@ while True:
                                 # if targetpanel.gun.linked_gun is None:
                                     # targetpanel.gun.ship.fired_guns = targetpanel.gun.ship.fired_guns + 1
                 
-                elif squadronpanel.rect.collidepoint(event.pos):
+                elif squadronpanel.active and squadronpanel.rect.collidepoint(event.pos):
                     if gamecontroller.active_player is player1:
                         squadronpanel.targetable_ships = player2.ships
                     elif gamecontroller.active_player is player2:
                         squadronpanel.targetable_ships = player1.ships
                     squadronpanel.on_click(event.pos)
+                
+                elif squadronpanel.target_panel.squadron and squadronpanel.target_panel.rect.collidepoint(event.pos):
+                    result = squadronpanel.target_panel.on_click(event.pos)
+                    if result:
+                        print('squadron launching')
+                        squadronpanel.target_panel.squadron.launching = True
+                        launchqueue.append(squadronpanel.target_panel.squadron, result)
 
                 elif gamecontroller.rect.collidepoint(event.pos):
                     print('mouse click on next turn button')
@@ -183,6 +190,12 @@ while True:
 
                     elif 'Select Player Order' not in gamecontroller.current_state:
                         print('next phase')
+                        if infopanel.selectedship:
+                            print('unselecting ship on infopanel')
+                            infopanel.selectedship.highlight = False
+                            infopanel.selectedship = None
+                            if squadronpanel.active:
+                                squadronpanel.active = False
                         gamecontroller.next_phase()
                         # infopanel.selectedship = None
                     elif 'Launch' in self.current_state and 'Resolve' not in self.current_state:
@@ -550,6 +563,15 @@ while True:
                 squadron.highlight = True
             else:
                 squadron.highlight = False
+        
+        if squadronpanel.selected_squadron:
+            squadron = squadronpanel.selected_squadron
+            ship = squadron.ship
+            center = ship.rect.center
+            thrust_px = playarea.scalegridtopixel(squadron.thrust)
+            pygame.gfxdraw.filled_circle(DISPLAYSURF, center[0], center[1], thrust_px*2, NordColors.frost0 + (96,))
+            pygame.draw.circle(DISPLAYSURF, NordColors.frost1, center, thrust_px, 1)
+            pygame.draw.circle(DISPLAYSURF, NordColors.frost1, center, thrust_px*2, 1)
 
     # DRAW STUFF FOR ALL THE SHIPS
     for ship in player1.ships + player2.ships:

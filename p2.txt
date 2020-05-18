@@ -4,4 +4,7 @@ UCM - 3 launch assets
 
 SR5 Line battlegroup (132pts)
 1 x Seattle - 132pts - M
+
+SR12 Vanguard battlegroup (227pts)
+2 x New Orleans - 64pts - L
 ------------- dflist.com ------------- 

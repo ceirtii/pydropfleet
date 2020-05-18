@@ -82,19 +82,14 @@ class Ship(pygame.sprite.Sprite):
         else:
             for launch in Ship.shiplaunchDB[self.shipclass]:
                 if launch['launchtype'] == 'Fighters & Bombers':
-                    launch_asset = LaunchAsset(self, self.faction, 'Fighter', launch['count'])
-                    self.fighters = launch_asset
-                    launch_asset = LaunchAsset(self, self.faction, 'Bomber', launch['count'])
-                    self.bombers = launch_asset
-                else:
-                    launch_asset = LaunchAsset(self, self.faction, launch['launchtype'], launch['count'])
-
-                if launch['launchtype'] == 'Dropships':
-                    self.dropships = launch_asset
+                    self.fighters = LaunchAsset(self, self.faction, 'Fighter', launch['count'])
+                    self.bombers = LaunchAsset(self, self.faction, 'Bomber', launch['count'])
+                elif launch['launchtype'] == 'Dropships':
+                    self.dropships = LaunchAsset(self, self.faction, 'Dropship', launch['count'])
                 elif launch['launchtype'] == 'Torpedo':
-                    self.torpedoes = launch_asset
+                    self.torpedoes = LaunchAsset(self, self.faction, 'Torpedo', launch['count'])
                 elif launch['launchtype'] == 'Bulk Lander':
-                    self.bulk_landers = launch_asset
+                    self.bulk_landers = LaunchAsset(self, self.faction, 'Bulk Lander', launch['count'])
 
         self.image0 = pygame.image.load(imagepath).convert_alpha()
         self.scale = .05
@@ -134,7 +129,7 @@ class Ship(pygame.sprite.Sprite):
         self.can_turn = True
         self.moving_up = False
         self.moving_down = False
-        self.active_launch_assets = 0
+        self.active_launch_assets = []
         
         self.crippled = False
         # crippled effects
@@ -739,8 +734,11 @@ class Ship(pygame.sprite.Sprite):
     #         print('draw moving up indicator')
     #     return
 
-    def launch_range(self, ships):
-        return
+    def __hash__(self):
+        return hash((self.name, self.shipclass))
+
+    def __eq__(self, other):
+        return self is other
 
 if __name__ == "__main__":
     Ship.load_shipDB()

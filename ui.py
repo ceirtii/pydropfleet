@@ -428,9 +428,12 @@ class Battlegroup:
             self.state = BattlegroupState.DESTROYED
         return all_ships_destroyed
     
+    def get_ships(self):
+        pass
+    
 class ShipGroup:
     def __init__(self):
-        self.group = []
+        self.ships = []
     
     def get_ships(self):
         pass
@@ -510,6 +513,7 @@ class GameController:
         self.active_bg = None
         self.combatlog = None
         self.target_queue = None
+        self.launch_queue = None
         self.turn = 1
         self.resolve_attacks = False
         self.player1 = None
@@ -525,14 +529,17 @@ class GameController:
         gamephase_render_size = self.title_font.size(state_text)
         surf.blit(gamephase_render, ((surf.get_width()-gamephase_render_size[0])/2,0))
 
-        if 'Activate' in self.current_state and not self.resolve_attacks:
+        if ('Activate' in self.current_state and not self.resolve_attacks) or 'Select' in self.current_state:
             # don't draw end turn button
             self.rect = pygame.Rect(0,0,0,0)
         else:
             if self.resolve_attacks:
                 endturn = 'Resolve attack'
             elif 'Launch' in self.current_state and 'Resolve' not in self.current_state:
-                endturn = 'Finish Launch'
+                if self.launch_queue.is_empty():
+                    endturn = 'Next Phase'
+                else:
+                    endturn = 'Finish Launch'
             else:
                 endturn = 'Next Phase'
             endturnbutton_render = self.major_font.render(endturn, True, NordColors.snow0)
@@ -1200,7 +1207,7 @@ class TargetQueue:
 
 class LaunchQueue:
     def __init__(self, font):
-        self.target_queue = []
+        self.target_queue = dict()
         self.rect = pygame.Rect(350,0,200,0)
         self.font = font
         self.active = False
@@ -1214,13 +1221,21 @@ class LaunchQueue:
         if not self.target_queue:
             return
         pygame.draw.rect(surf, NordColors.nord0, self.rect)
-        for gun, target in self.target_queue:
-            line_render = self.font.render(f'{gun.guntype} on {gun.ship} -> {target}', True, NordColors.snow0)
+        for target in self.target_queue:
+            queue_str = list(map(str, self.target_queue[target]))
+            queue_str = f'{queue_str} -> {target}'
+            if self.font.size(queue_str)[0] > self.rect.width:
+                self.rect.width = self.font.size(queue_str)[0]
+            line_render = self.font.render(queue_str, True, NordColors.snow0)
             surf.blit(line_render, (x,y))
             y = y + self.font_height
     
-    def append(self, gun, target):
-        self.target_queue.append((gun,target))
+    def append(self, launch_asset, target):
+        print(f'adding {launch_asset} to {target}')
+        try:
+            self.target_queue[target].append(launch_asset)
+        except KeyError:
+            self.target_queue[target] = [launch_asset]
     
     def pop(self):
         return self.target_queue.pop(0)
@@ -1232,13 +1247,14 @@ class LaunchQueue:
         pass
 
 class SquadronPanel:
-    def __init__(self, font):
+    def __init__(self, font, playarea):
         self.launch_asset = None
         self.selected_squadron = None
-        self.target_panel = SquadronTargetPanel(font)
+        self.playarea = playarea
+        self.target_panel = SquadronTargetPanel(font, playarea)
         self.target_panel.squadron_panel = self
         self.active = False
-        self.rect = pygame.Rect(0,0,300,0)
+        self.rect = pygame.Rect(0,0,150,0)
         self.font = font
         self.active_player = None
         self.targetable_ships = None
@@ -1246,6 +1262,7 @@ class SquadronPanel:
     def draw(self, surf):
         if not self.active:
             return
+        
         self.rect.right = surf.get_width()-350
 
         buffer = self.font.size('')[1]/2
@@ -1260,7 +1277,7 @@ class SquadronPanel:
         surf.blit(header_render, (x, y))
         y = y + buffer * 2
         for index, squadron in enumerate(squadrons):
-            print(squadron)
+            # print(squadron)
             sq_str = f'{str(squadron)} {index + 1}'
             sq_render = self.font.render(sq_str, True, NordColors.frost0)
             surf.blit(sq_render, (x, y))
@@ -1295,20 +1312,52 @@ class SquadronPanel:
                 return squadron
 
 class SquadronTargetPanel:
-    def __init__(self, font):
+    def __init__(self, font, playarea):
         self.font = font
         self.squadron = None
         self.rect = pygame.Rect(0,0,300,0)
         self.squadron_panel = None
+        self.targets = None
+        self.target_rects = None
+        self.playarea = playarea
 
     def draw(self, surf):
         if not self.squadron:
-            print('no squadron selected')
+            # print('no squadron selected')
             return
+        self.targets = self.squadron.get_targets(self.squadron_panel.targetable_ships)
+        self.target_rects = []
+
+        buffer = self.font.size('')[1]/2
+        self.rect.height = buffer * 2 * (len(self.targets) + 2)
         self.rect.bottomright = self.squadron_panel.rect.bottomleft
-        targets = self.squadron.get_targets()
-        for target in targets:
-            print('draw target')
+        pygame.draw.rect(surf, NordColors.nord1, self.rect)
+
+        x = self.rect.left + buffer
+        y = self.rect.top + buffer
+        for target in self.targets:
+            # print('draw target')
+            target_str = str(target)
+            target_render = self.font.render(target_str, True, NordColors.snow0)
+            surf.blit(target_render, (x, y))
+
+            target_rect = target_render.get_rect()
+            target_rect.topleft = (x, y)
+            self.target_rects.append(target_rect)
+
+            if target_rect.collidepoint(pygame.mouse.get_pos()):
+                pygame.draw.rect(surf, NordColors.frost0, target_rect, 1)
+                source_pos = self.squadron.ship.rect.center
+                target_pos = target.rect.center
+                pygame.draw.line(surf, NordColors.frost0, source_pos, target_pos)
+
+            y = y + buffer * 2
+
+    def on_click(self, mousepos):
+        for index, target_rect in enumerate(self.target_rects):
+            if target_rect.collidepoint(mousepos):
+                return self.targets[index]
+        return
 
     def scroll(self, dir):
         pass

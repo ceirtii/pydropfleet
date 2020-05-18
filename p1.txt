@@ -4,4 +4,7 @@ PHR - 2 launch assets
 
 SR7 Line battlegroup (193pts)
 1 x Ikarus - 115pts - M
+
+SR7 Line battlegroup (169pts)
+2 x Medea - 78pts - L
 ------------- dflist.com ------------- 
