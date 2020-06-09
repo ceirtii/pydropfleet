@@ -123,16 +123,18 @@ class FleetPanel:
         # self.orbital_layer_mask = pygame.image.load('light hatch cropped.png').convert_alpha()
         # self.buffer = 10
     
-    def draw(self, surf):
-        # self.width = int(surf.get_width()*self.width_frac)
+    def resize(self, surf):
         self.height = surf.get_height()
         self.rect.width = self.width
         self.rect.height = surf.get_height()*4
         self.surf = pygame.Surface((self.width, self.height*4),pygame.SRCALPHA)
         if self.side == 'right':
             self.rect.right = surf.get_width()
-        
-        pygame.gfxdraw.box(surf, self.rect, self.color)
+    
+    def draw(self, surf):
+        # self.width = int(surf.get_width()*self.width_frac)
+        self.surf.fill(self.color)
+        # pygame.gfxdraw.box(surf, self.rect, self.color)
 
         # line_font = pygame.font.Font('kooten.ttf', 18)
         # minor_font = pygame.font.Font('kooten.ttf', 14)
@@ -155,9 +157,14 @@ class FleetPanel:
             else:
                 raise Exception
             font_render = self.line_font.render(str(bg),True,bg_color)
+            bg.rect = font_render.get_rect()
+            bg.rect.topleft = (self.rect.left+buffer, y)
             self.surf.blit(font_render,(buffer, y))
             y = y + line_height + buffer
             for group in bg.groups:
+
+                group_top = y - buffer/2
+
                 for ship in group.ships:
                     if ship.state in [ShipState.FIRING, ShipState.MOVING]:
                         ship_font_color = NordColors.frost0
@@ -236,15 +243,27 @@ class FleetPanel:
                     ship.panel_rect.left = 1.5*buffer + self.rect.left
                     ship.panel_rect.top = ship.panel_rect.top + self.rect.top + buffer/2
 
-                    y = y + 2*buffer                    
+                    y = y + 2*buffer   
+                
+                group.rect.top = group_top
+                group.rect.height = y-buffer-group_top
+                group.rect.left = self.rect.left
+                group.rect.width = 1.5*buffer
+                # pygame.draw.rect(surf, NordColors.frost0, group.rect)
+                if group.is_selected:
+                    group_color = NordColors.frost0
+                else:
+                    group_color = NordColors.frost2
+                pygame.draw.line(self.surf,group_color,(.75*buffer,group_top),(.75*buffer,y-buffer),4)
                 y = y + buffer
+
             bg_boundary = pygame.Rect(.5*buffer, bg_top-.5*buffer, self.width-buffer, y-bg_top-.5*buffer)
             if bg.state is BattlegroupState.ACTIVE or bg.hovered:
                 pygame.draw.rect(self.surf, NordColors.frost0, bg_boundary, 2)
             elif bg.state is BattlegroupState.PENDING_ACTIVATION:
                 pygame.draw.rect(self.surf, NordColors.frost2, bg_boundary, 2)
+
         self.content_height = y
-        # surf.blit(self.surf,(0,0))
         surf.blit(self.surf,self.rect.topleft)
 
     def scroll(self, dir):
@@ -269,6 +288,26 @@ class InfoPanel:
         self.selected_gun = None
         self.needs_update = True
         self.targetpanel = None
+    
+    def change_selected_obj(self, obj):
+        if obj is None:
+            self.selectedship = None
+            return
+            
+        if self.selectedship:
+            self.selectedship.is_selected = False
+            try:
+                if self.selectedship.highlight:
+                    self.selectedship.highlight = False
+            except AttributeError:
+                print('no highlight attribute')
+
+        if self.selectedship is obj:
+            self.selectedship = None
+        else:
+            self.selectedship = obj
+            obj.is_selected = True
+        return obj
 
     def draw(self, surf):
         self.hovered_gun = None
@@ -284,12 +323,19 @@ class InfoPanel:
         minor_height = self.minor_font.size('')[1]
 
         y = self.rect.top + self.buffer
-        header_render = self.line_font.render('Ship Info',True,NordColors.snow0)
+        if self.selectedship:
+            header_str = f'{self.selectedship.__class__.__name__} Info'
+        else:
+            header_str = 'Info'
+        header_render = self.line_font.render(header_str,True,NordColors.snow0)
         surf.blit(header_render, (self.rect.left+self.buffer,y))
         y = y + line_height# + self.buffer
 
         # print(f'selected ship {self.selectedship}')
-        if self.selectedship:
+        if not self.selectedship:
+            return
+
+        elif isinstance(self.selectedship, Ship):
             shipname_render = self.line_font.render(f'{self.selectedship.name}, {self.selectedship.shipclass}-class {self.selectedship.shiptype}', True, NordColors.snow0)
             surf.blit(shipname_render, (self.rect.left+self.buffer,y))
             y = y + line_height
@@ -342,6 +388,14 @@ class InfoPanel:
                 ailments = ', '.join(ailments)
                 ailments_render = self.minor_font.render(ailments, True, NordColors.snow0)
                 surf.blit(ailments_render, (self.rect.left+self.buffer,y))
+        
+        elif isinstance(self.selectedship, Battlegroup):
+            bgname_render = self.line_font.render(str(self.selectedship), True, NordColors.snow0)
+            surf.blit(bgname_render, (self.rect.left+self.buffer,y))
+
+        elif isinstance(self.selectedship, ShipGroup):
+            groupname_render = self.line_font.render(str(self.selectedship), True, NordColors.snow0)
+            surf.blit(groupname_render, (self.rect.left+self.buffer,y))
 
     def scroll(self, dir):
         pass
@@ -368,6 +422,12 @@ class Battlegroup:
         self.up_arrow_rect = None
         self.down_arrow_rect = None
         self.player = None
+        self.is_selected = False
+
+        # self.line_font = None
+        # self.minor_font = None
+        # self.surf = None
+        self.rect = pygame.Rect(0,0,0,0)
         # self.update_sr()
 
     def __str__(self):
@@ -433,11 +493,23 @@ class Battlegroup:
         for group in self.groups:
             out = out + group.check_shipstate(state)
         return out
+    
+    def resize(self, surf):
+        # line_height = self.line_font.size('')[1]
+        # minor_height = self.minor_font.size('')[1]
+        # buffer = line_height/2
+        # height = 1.5*buffer+line_height
         
+        return
+
+    def draw(self, surf):
+        return# self.surf
     
 class ShipGroup:
     def __init__(self):
         self.ships = []
+        self.rect = pygame.Rect(0,0,0,0)
+        self.is_selected = False
     
     def __str__(self):
         return f'{len(self.ships)} {self.ships[0].shipclass}'
