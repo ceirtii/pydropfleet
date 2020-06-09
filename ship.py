@@ -116,7 +116,7 @@ class Ship(pygame.sprite.Sprite):
         # self.maxthrust = self.thrust
         self.highlight = False
         self.state = ShipState.SETUP
-        self.group = []
+        self.group = None
         self.battlegroup = None
         self.hover = False
         self.fired_guns = 0
@@ -531,7 +531,7 @@ class Ship(pygame.sprite.Sprite):
         return out
 
     def draw_cohesion(self, surf):
-        for neighbor_ship in self.group:
+        for neighbor_ship in self.group.ships:
             if neighbor_ship is self:
                 continue
             x0, y0 = self.rect.center
@@ -544,12 +544,16 @@ class Ship(pygame.sprite.Sprite):
             pygame.draw.line(surf, line_color, neighbor_ship.rect.center, self.rect.center)
     
     def draw_tooltip(self, surf, mousepos, font):
+        x, y = mousepos
+        text_height = font.size('')[1]
+        tt_name = str(self)
+        tt_name_render = font.render(tt_name, True, NordColors.snow0)
+
         tt_str = f'sca={self.scan}/sig={self.active_sig}/thr={self.thrust}/arm={self.armor}/pd={self.pd}'
         tt_render = font.render(tt_str, True, NordColors.snow0)
         tt_rect = tt_render.get_rect()
         tt_rect.bottomleft = mousepos
         pygame.draw.rect(surf, NordColors.nord1, tt_rect)
-        x, y = mousepos
         surf.blit(tt_render, (x, y - tt_rect.height))
     
     def do_damage_control(self):

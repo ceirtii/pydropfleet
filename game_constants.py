@@ -35,3 +35,12 @@ class OrbitalLayer(Enum):
     HIGH_ORBIT = auto()
     LOW_ORBIT = auto()
     ATMOSPHERE = auto()
+
+class SectorType(Enum):
+    COMMERCIAL = auto()
+    MILITARY = auto()
+    INDUSTRIAL = auto()
+    RUINS = auto()
+    ORBITAL_DEFENSE = auto()
+    POWER_PLANT = auto()
+    COMMS_STATION = auto()

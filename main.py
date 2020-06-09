@@ -198,7 +198,7 @@ while True:
                                 squadronpanel.active = False
                         gamecontroller.next_phase()
                         # infopanel.selectedship = None
-                    elif 'Launch' in self.current_state and 'Resolve' not in self.current_state:
+                    elif 'Launch' in gamecontroller.current_state and 'Resolve' not in gamecontroller.current_state:
                         print('finishing launch activation for this ship')
 
                 elif infopanel.rect.collidepoint(event.pos):
@@ -248,13 +248,12 @@ while True:
                     if 'Activate' in gamecontroller.current_state:
                         # print('modifying selectable ships if in an activation phase')
                         selectable_ships = []
-                        for group in gamecontroller.active_bg.groups:
-                            for ship in group:
-                                selectable_ships.append(ship)
+                        for ship in gamecontroller.active_bg.get_ships():
+                            selectable_ships.append(ship)
 
                     elif 'Launch' in gamecontroller.current_state:
                         selectable_ships = []
-                        for ship in player1.ships + player2.ships:
+                        for ship in gamecontroller.active_player.ships:
                             if ship.state is ShipState.LAUNCHING:
                                 selectable_ships.append(ship)
 

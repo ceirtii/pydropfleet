@@ -132,7 +132,7 @@ class FleetPanel:
         if self.side == 'right':
             self.rect.right = surf.get_width()
         
-        pygame.draw.rect(surf, self.color, self.rect)
+        pygame.gfxdraw.box(surf, self.rect, self.color)
 
         # line_font = pygame.font.Font('kooten.ttf', 18)
         # minor_font = pygame.font.Font('kooten.ttf', 14)
@@ -158,7 +158,7 @@ class FleetPanel:
             self.surf.blit(font_render,(buffer, y))
             y = y + line_height + buffer
             for group in bg.groups:
-                for ship in group:
+                for ship in group.ships:
                     if ship.state in [ShipState.FIRING, ShipState.MOVING]:
                         ship_font_color = NordColors.frost0
                     elif ship.state is ShipState.DESTROYED:
@@ -377,38 +377,33 @@ class Battlegroup:
         return out_str
     
     def printships(self):
-        out_str = ''
-        for group in self.groups:
-            out_str = out_str + f'{len(group)} {group[0].shipclass}, '
-        out_str = out_str[:-2]
+        groups  = [str(group) for group in self.groups]
+        out_str = ', '.join(groups)
         return out_str
     
     def update(self):
         if self.state is BattlegroupState.ACTIVE:
-            for group in self.groups:
-                for ship in group:
-                    if ship.state is ShipState.MOVING or ship.state is ShipState.FIRING:
-                        # print('ships left to activate')
-                        return
+            for ship in self.get_ships():
+                if ship.state is ShipState.MOVING or ship.state is ShipState.FIRING:
+                    # print('ships left to activate')
+                    return
             print('all ships activated, make battlegroup activated')
             self.state = BattlegroupState.ACTIVATED
     
     def activate(self):
         self.state = BattlegroupState.ACTIVE
-        for group in self.groups:
-            for ship in group:
-                if ship.state is not ShipState.DESTROYED:
-                    ship.state = ShipState.MOVING
-                    for gun in ship.guns:
-                        gun.state = GunState.TARGETING
+        for ship in self.get_ships():
+            if ship.state is not ShipState.DESTROYED:
+                ship.state = ShipState.MOVING
+                for gun in ship.guns:
+                    gun.state = GunState.TARGETING
     
     def update_sr(self):
         sr = 0
-        for group in self.groups:
-            for ship in group:
-                if ship.state is not ShipState.DESTROYED:
-                    tonnage = Ship.ship_tonnage[ship.tonnage]
-                    sr = sr + tonnage
+        for ship in self.get_ships():
+            if ship.state is not ShipState.DESTROYED:
+                tonnage = Ship.ship_tonnage[ship.tonnage]
+                sr = sr + tonnage
         self.sr = sr
         return sr
     
@@ -416,9 +411,8 @@ class Battlegroup:
         if self.state is BattlegroupState.DESTROYED:
             return True
         all_ships_destroyed = True
-        for group in self.groups:
-            for ship in group:
-                all_ships_destroyed = ship.state is ShipState.DESTROYED and all_ships_destroyed
+        for ship in self.get_ships():
+            all_ships_destroyed = ship.state is ShipState.DESTROYED and all_ships_destroyed
         if all_ships_destroyed:
             # if bg in self.p1_bg_queue:
             #     self.p1_bg_queue.remove(bg)
@@ -429,14 +423,31 @@ class Battlegroup:
         return all_ships_destroyed
     
     def get_ships(self):
-        pass
+        out = []
+        for group in self.groups:
+            out = out + group.ships
+        return out
+    
+    def check_shipstate(self, state):
+        out = []
+        for group in self.groups:
+            out = out + group.check_shipstate(state)
+        return out
+        
     
 class ShipGroup:
     def __init__(self):
         self.ships = []
     
-    def get_ships(self):
-        pass
+    def __str__(self):
+        return f'{len(self.ships)} {self.ships[0].shipclass}'
+    
+    def check_shipstate(self, state):
+        out = []
+        for ship in self.ships:
+            if ship.state is state:
+                out.append(ship)
+        return out
 
 class BattlegroupPlanner:
     def __init__(self, battlegroups, major_font, minor_font):
@@ -522,6 +533,7 @@ class GameController:
         # self.activation_queue = Queue()
         self.display_launching_ship = None
         # self.display_launch_asset = None
+        self.active_group = None
     
     def draw(self, surf):
         state_text = f'{self.current_state}'
@@ -637,11 +649,10 @@ class GameController:
                         fleetlist.remove(bg)
                     else:
                         bg.state = BattlegroupState.NOT_YET_ACTIVE
-                        for group in bg.groups:
-                            for ship in group:
-                                if ship.state is ShipState.DESTROYED:
-                                    continue
-                                ship.state = ShipState.NOT_YET_ACTIVATED
+                        for ship in bg.get_ships():
+                            if ship.state is ShipState.DESTROYED:
+                                continue
+                            ship.state = ShipState.NOT_YET_ACTIVATED
                         index = index + 1
             for bg in self.p1_battlegroups:
                 self.p1_bg_queue.append(bg)
@@ -741,10 +752,12 @@ class GameController:
             self.player2.add_launch_assets()
 
             if self.player_initiative is self.player1:
+                self.active_player = self.player1
                 for ship in self.player1.bomber_launch:
                     ship.state = ShipState.LAUNCHING
 
             elif self.player_initiative is self.player2:
+                self.active_player = self.player2
                 for ship in self.player2.bomber_launch:
                     ship.state = ShipState.LAUNCHING
 
@@ -765,26 +778,24 @@ class GameController:
             print('resolve damage control')
             bgs = self.p1_battlegroups + self.p2_battlegroups
             for bg in bgs:
-                for group in bg.groups:
-                    for ship in group:
-                        dc_results = ship.do_damage_control()
-                        if dc_results:
-                            self.combatlog.append(f'{ship} doing damage control')
-                            for line in dc_results:
-                                self.combatlog.append(line)
+                for ship in bg.get_ships():
+                    dc_results = ship.do_damage_control()
+                    if dc_results:
+                        self.combatlog.append(f'{ship} doing damage control')
+                        for line in dc_results:
+                            self.combatlog.append(line)
             self.current_state = f'Turn {self.turn}: Roundup (Damage Control)'
 
         elif 'Damage Control' in self.current_state:
             print('resolve orbital decay')
             bgs = self.p1_battlegroups + self.p2_battlegroups
             for bg in bgs:
-                for group in bg.groups:
-                    for ship in group:
-                        dc_results = ship.do_orbital_decay()
-                        if dc_results:
-                            self.combatlog.append(f'{ship} doing damage control')
-                            for line in dc_results:
-                                self.combatlog.append(line)
+                for ship in bg.get_ships():
+                    dc_results = ship.do_orbital_decay()
+                    if dc_results:
+                        self.combatlog.append(f'{ship} doing damage control')
+                        for line in dc_results:
+                            self.combatlog.append(line)
             self.current_state = f'Turn {self.turn}: Roundup (Orbital Decay)'
 
         elif 'Orbital Decay' in self.current_state:
@@ -1017,14 +1028,13 @@ class GameController:
         fleets = [self.p1_battlegroups, self.p2_battlegroups]
         for fleet in fleets:
             for bg in fleet:
-                for group in bg.groups:
-                    for ship in group:
-                        if ship.state is not ShipState.DESTROYED and ship is not explody_ship:
-                            x0, y0 = explody_ship.loc
-                            x1, y1 = ship.loc
-                            dist = math.dist([x0, y0], [x1, y1])
-                            if dist < explode_radius:
-                                ships_in_radius.append(ship)
+                for ship in bg.get_ships():
+                    if ship.state is not ShipState.DESTROYED and ship is not explody_ship:
+                        x0, y0 = explody_ship.loc
+                        x1, y1 = ship.loc
+                        dist = math.dist([x0, y0], [x1, y1])
+                        if dist < explode_radius:
+                            ships_in_radius.append(ship)
 
         if not ships_in_radius:
             out.append('no ships in explosion radius')
@@ -1129,7 +1139,7 @@ class Player:
                     vals[2] = f'{vals[2]} {vals[3]}'
                     vals.pop(3)
                 # print(vals[2])
-                group = []
+                group = ShipGroup()
                 for i in range(int(vals[0])):
                     if self.number == 1:
                         image = 'blueship.png'
@@ -1144,7 +1154,7 @@ class Player:
                     # draggables.append(newship)
                     # sprites.add(newship)
                     # self.ships.append(newship)
-                    group.append(newship)
+                    group.ships.append(newship)
                 currentBG.groups.append(group)
         for bg in self.battlegroups:
             bg.update_sr()
@@ -1152,18 +1162,20 @@ class Player:
     
     def add_launch_assets(self):
         for bg in self.battlegroups:
-            for group in bg.groups:
-                for ship in group:
-                        # print('this ship has launch')
-                    if ship.torpedoes:
-                        self.torpedo_launch.append(ship)
-                    if ship.fighters:
-                        self.bomber_launch.append(ship)
-                        self.fighter_launch.append(ship)
-                    elif ship.dropships:
-                        self.dropship_launch.append(ship)
-                    elif ship.bulk_landers:
-                        self.bulklander_launch.append(ship)
+            for ship in bg.get_ships():
+                    # print('this ship has launch')
+                if ship.torpedoes:
+                    self.torpedo_launch.append(ship)
+                if ship.fighters:
+                    self.bomber_launch.append(ship)
+                    self.fighter_launch.append(ship)
+                elif ship.dropships:
+                    self.dropship_launch.append(ship)
+                elif ship.bulk_landers:
+                    self.bulklander_launch.append(ship)
+    
+    # def get_ships(self):
+    #     out = 
     
     def update(self):
         pass
@@ -1231,6 +1243,15 @@ class LaunchQueue:
             y = y + self.font_height
     
     def append(self, launch_asset, target):
+        print(f'check if {launch_asset} already has a target')
+        key_to_delete = None
+        for key, row in self.target_queue.items():
+            if launch_asset in row:
+                row.remove(launch_asset)
+            if not row:
+                key_to_delete = key
+        if key_to_delete:
+            self.target_queue.pop(key_to_delete)
         print(f'adding {launch_asset} to {target}')
         try:
             self.target_queue[target].append(launch_asset)
