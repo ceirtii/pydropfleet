@@ -171,7 +171,7 @@ class Weapon:
         self.targetable_ships = len(out)
         return out
     
-    def shoot(self, ship):
+    def shoot(self, ship, multiple):
         result = []
         result.append(f'{self.guntype} on {str(self.ship)} -> {str(ship)}')
 
@@ -212,7 +212,9 @@ class Weapon:
                 dice_faces, addition = map(int,attack_cond.split('+'))
                 attack_rolls = [random.randint(1,6) for i in range(random.randint(1,dice_faces)+addition)]
             else:
-                attack_rolls = [random.randint(1,6) for i in range(int(self.attack)*self.count)]
+                if multiple > 1:
+                    result.append(f'pooling CAW attacks x{multiple}')
+                attack_rolls = [random.randint(1,6) for i in range(int(self.attack)*self.count*multiple)]
             attack_str = ', '.join(map(str,attack_rolls))
             result.append(f'attack rolls: {attack_str}')
             # index = 0

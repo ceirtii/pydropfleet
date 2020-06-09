@@ -254,7 +254,7 @@ class FleetPanel:
                     group_color = NordColors.frost0
                 else:
                     group_color = NordColors.frost2
-                pygame.draw.line(self.surf,group_color,(.75*buffer,group_top),(.75*buffer,y-buffer),4)
+                pygame.draw.line(self.surf,group_color,(buffer,group_top),(buffer,y-buffer),4)
                 y = y + buffer
 
             bg_boundary = pygame.Rect(.5*buffer, bg_top-.5*buffer, self.width-buffer, y-bg_top-.5*buffer)
@@ -290,10 +290,6 @@ class InfoPanel:
         self.targetpanel = None
     
     def change_selected_obj(self, obj):
-        if obj is None:
-            self.selectedship = None
-            return
-            
         if self.selectedship:
             self.selectedship.is_selected = False
             try:
@@ -302,11 +298,15 @@ class InfoPanel:
             except AttributeError:
                 print('no highlight attribute')
 
-        if self.selectedship is obj:
+        if obj is None or self.selectedship is obj:
             self.selectedship = None
         else:
             self.selectedship = obj
             obj.is_selected = True
+            try:
+                obj.highlight = True
+            except AttributeError:
+                print('no highlight attribute')
         return obj
 
     def draw(self, surf):
@@ -436,6 +436,9 @@ class Battlegroup:
         #     out_str += f'\n{len(group)} {group[0].shipclass}'
         return out_str
     
+    def __iter__(self):
+        return iter(self.groups)
+    
     def printships(self):
         groups  = [str(group) for group in self.groups]
         out_str = ', '.join(groups)
@@ -513,6 +516,9 @@ class ShipGroup:
     
     def __str__(self):
         return f'{len(self.ships)} {self.ships[0].shipclass}'
+    
+    def __iter__(self):
+        return iter(self.ships)
     
     def check_shipstate(self, state):
         out = []
@@ -1271,13 +1277,29 @@ class TargetQueue:
         if not self.target_queue:
             return
         pygame.draw.rect(surf, NordColors.nord0, self.rect)
-        for gun, target in self.target_queue:
-            line_render = self.font.render(f'{gun.guntype} on {gun.ship} -> {target}', True, NordColors.snow0)
+        for gun, target, count in self.target_queue:
+            if count > 1:
+                line_str = f'{gun.guntype} x{count} -> {target}'
+            else:
+                line_str = f'{gun.guntype} on {gun.ship} -> {target}'
+            line_render = self.font.render(line_str, True, NordColors.snow0)
             surf.blit(line_render, (x,y))
             y = y + self.font_height
     
     def append(self, gun, target):
-        self.target_queue.append((gun,target))
+        attack_pooled = False
+        if gun.close_action:
+            for index, queue_entry in enumerate(self.target_queue):
+                queue_gun, queue_target, queue_count = queue_entry
+                if queue_gun.close_action and queue_target is target and queue_gun.ship in gun.ship.group:
+                    print('pooling close action attack')
+                    attack_pooled = True
+                    self.target_queue.pop(index)
+                    self.target_queue.append((queue_gun, queue_target, queue_count + 1))
+                    break
+
+        if not attack_pooled:
+            self.target_queue.append((gun,target,1))
     
     def pop(self):
         return self.target_queue.pop(0)

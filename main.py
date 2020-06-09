@@ -125,6 +125,7 @@ show_p2_sig = False
 show_tooltip = True
 dragging = False
 targeting_ship = None
+moving_ship = None
 # selected_gun = None
 # firing_queue = []
 playwindow = pygame.Rect(DISPLAYSURF.get_width()*.2,0,DISPLAYSURF.get_width()*.6,DISPLAYSURF.get_height()*.7)
@@ -189,8 +190,8 @@ while True:
                     if gamecontroller.resolve_attacks:
                         print('resolving next attack queued')
                         if not gamecontroller.target_queue.is_empty():
-                            gun, target = gamecontroller.target_queue.pop()
-                            result = gun.shoot(target)
+                            gun, target, count = gamecontroller.target_queue.pop()
+                            result = gun.shoot(target, count)
                             print(result)
                             for line in result:
                                 combatlog.append(line)
@@ -314,22 +315,26 @@ while True:
                             
                         if ship.rect.collidepoint(event.pos) and ship is infopanel.selectedship:
                             if ship.state in [ShipState.SETUP, ShipState.MOVING]:
-                                if not ship.is_selected:
+                                if moving_ship is None:
                                     print('moving selected ship')
+                                    moving_ship = ship
                                     # infopanel.selectedship = ship
+                                    # infopanel.change_selected_obj(ship)
                                     selectedship = ship
                                     draggables.remove(ship)
                                     # pos0 = playarea.pixeltogrid(ship.rect.center)
                                     selectoffset_x = ship.rect.center[0] - event.pos[0]
                                     selectoffset_y = ship.rect.center[1] - event.pos[1]
-                                    ship.is_selected = True
+                                    # ship.is_selected = True
                                     # if ship.state == ShipState.ACTIVATED:
                                         # ship.state = ShipState.MOVING
                                     # print(f'initial bearing {ship.bearing}')
                                     break
                                 else:
                                     print('finishing movement of selected ship')
+                                    moving_ship = None
                                     # infopanel.selectedship = None
+                                    # infopanel.change_selected_obj(None)
                                     draggables.append(ship)
                                     selectedship = None
                                     ship.is_selected = False
@@ -371,10 +376,10 @@ while True:
                                     squadronpanel.active = False
                             else:
                                 print('selecting new infopanel ship')
-                                if infopanel.selectedship:
-                                    infopanel.selectedship.highlight = False
+                                # if infopanel.selectedship:
+                                #     infopanel.selectedship.highlight = False
                                 infopanel.change_selected_obj(ship)
-                                ship.highlight = True
+                                # ship.highlight = True
                                 if 'Launch' in gamecontroller.current_state and 'Resolve' not in gamecontroller.current_state:
                                     print('show squadron launch panel')
                                     if 'Bomber' in gamecontroller.current_state:
