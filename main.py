@@ -49,6 +49,7 @@ print('fonts loaded')
 print('initializing gamecontroller')
 gamecontroller = GameController(title_font, major_font, minor_font)
 ui.append(gamecontroller)
+launchsel_panel = gamecontroller.launchsel_panel
 
 print('initializing combat log')
 combatlog = CombatLog(minor_font)
@@ -126,6 +127,7 @@ show_tooltip = True
 dragging = False
 targeting_ship = None
 moving_ship = None
+draw_fps = False
 # selected_gun = None
 # firing_queue = []
 playwindow = pygame.Rect(DISPLAYSURF.get_width()*.2,0,DISPLAYSURF.get_width()*.6,DISPLAYSURF.get_height()*.7)
@@ -157,9 +159,19 @@ while True:
         elif event.type == MOUSEBUTTONDOWN:
             if event.button == 1:
                 print(f'mouse click at {event.pos}')
+                if launchsel_panel.active and launchsel_panel.rect.collidepoint(event.pos):
+                    print('mouse click on launch group selection panel')
+                    clicked_group = launchsel_panel.on_click(event.pos)
+                    if clicked_group is None:
+                        continue
+                    print(f'clicked on group {str(clicked_group)}')
+                    for ship in clicked_group:
+                        ship.state = ShipState.LAUNCHING
+                    continue
+
                 if targetpanel.active and targetpanel.rect.collidepoint(event.pos):
                     print('mouse click on target panel')
-                    if targetpanel.active and targetpanel.gun.state is GunState.TARGETING:
+                    if targetpanel.gun.state is GunState.TARGETING:
                         for index, rect in enumerate(targetpanel.target_rect_list):
                             if rect.collidepoint(event.pos):
                                 targeted_ship = targetpanel.target_list[index]
@@ -195,12 +207,16 @@ while True:
                             print(result)
                             for line in result:
                                 combatlog.append(line)
+                    
+                    # elif gamecontroller.resolve_launch:
+                    #     print('resolving next launch target queued')
+                    #     print(launchqueue)
 
                     elif 'Select Player Order' not in gamecontroller.current_state:
                         print('next phase')
                         if infopanel.selectedship:
                             print('unselecting ship on infopanel')
-                            infopanel.selectedship.highlight = False
+                            # infopanel.selectedship.highlight = False
                             infopanel.change_selected_obj(None)
                             if squadronpanel.active:
                                 squadronpanel.active = False
@@ -213,24 +229,26 @@ while True:
                 if infopanel.rect.collidepoint(event.pos):
                     print('mouse click on infopanel')
                     if not infopanel.selectedship:
-                        break
-                    print(f'checking self ship for state: {infopanel.selectedship.state}')
+                        continue
+
                     if infopanel.selected_gun and infopanel.selected_gun.rect.collidepoint(event.pos):
                         infopanel.selected_gun = None
                         targetpanel.active = False
                         
-                    elif infopanel.selectedship.state is ShipState.FIRING:
-                        print('showing potential targets')
-                        for gun in infopanel.selectedship.guns:
-                            if gun.rect.collidepoint(event.pos):
-                                infopanel.selected_gun = gun
-                                targetpanel.gun = gun
-                                targetpanel.active = True
-                                # if gun.ship.player == 1:
-                                #     check_ships = p2_ships
-                                # if gun.ship.player == 2:
-                                #     check_ships = p1_ships
-                                targetpanel.target_list = gun.get_targetable_ships(check_ships, playarea)
+                    elif isinstance(infopanel.selectedship, Ship):
+                        print(f'checking self ship for state: {infopanel.selectedship.state}')
+                        if infopanel.selectedship.state is ShipState.FIRING:
+                            print('showing potential targets')
+                            for gun in infopanel.selectedship.guns:
+                                if gun.rect.collidepoint(event.pos):
+                                    infopanel.selected_gun = gun
+                                    targetpanel.gun = gun
+                                    targetpanel.active = True
+                                    # if gun.ship.player == 1:
+                                    #     check_ships = p2_ships
+                                    # if gun.ship.player == 2:
+                                    #     check_ships = p1_ships
+                                    targetpanel.target_list = gun.get_targetable_ships(check_ships, playarea)
                     continue
                 
                 if p1_fleetpanel.rect.collidepoint(event.pos) or p2_fleetpanel.rect.collidepoint(event.pos):
@@ -636,12 +654,12 @@ while True:
                 ship.draw_tooltip(DISPLAYSURF, mousepos, minor_font)
             # hoveredship_drawn = True
             ship.hover = True
-            pygame.draw.rect(DISPLAYSURF, NordColors.frost2, ship.rect, 1)
             # hoveredship = ship
-            if show_cohesion:
-                ship.draw_cohesion(DISPLAYSURF)
                 # print(f'ship hovered: {ship}')
-        
+        if ship.hover:
+            pygame.draw.rect(DISPLAYSURF, NordColors.frost2, ship.rect, 1)
+            if show_cohesion:
+                ship.draw_cohesion(DISPLAYSURF)        
         ship.update()
 
     # show sectors
@@ -794,11 +812,11 @@ while True:
         # if ui_el.needs_update:
         ui_el.draw(DISPLAYSURF)
             # ui_el.needs_update = False
-
-    fps_font_surface = fps_font.render(f'{INTERNALCLOCK.get_fps():.1f}', 
-            True, 
-            (255,255,255))
-    DISPLAYSURF.blit(fps_font_surface,(0,0))
+    if draw_fps:
+        fps_font_surface = fps_font.render(f'{INTERNALCLOCK.get_fps():.1f}', 
+                True, 
+                (255,255,255))
+        DISPLAYSURF.blit(fps_font_surface,(0,0))
 
     INTERNALCLOCK.tick()
     pygame.display.update()

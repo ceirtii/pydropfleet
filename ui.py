@@ -605,6 +605,7 @@ class GameController:
         self.launch_queue = None
         self.turn = 1
         self.resolve_attacks = False
+        self.resolve_launch = False
         self.player1 = None
         self.player2 = None
         # self.needs_update = True
@@ -612,8 +613,10 @@ class GameController:
         self.display_launching_ship = None
         # self.display_launch_asset = None
         self.active_group = None
+        self.launchsel_panel = LaunchGroupSelectionPanel(major_font, minor_font)
     
     def draw(self, surf):
+        self.launchsel_panel.draw(surf)
         state_text = f'{self.current_state}'
         gamephase_render = self.title_font.render(state_text, True, NordColors.snow0)
         gamephase_render_size = self.title_font.size(state_text)
@@ -624,12 +627,14 @@ class GameController:
             self.rect = pygame.Rect(0,0,0,0)
         else:
             if self.resolve_attacks:
-                endturn = 'Resolve attack'
+                endturn = 'Resolve Attack'
+            elif self.resolve_launch:
+                endturn = 'Resolve Launch'
             elif 'Launch' in self.current_state and 'Resolve' not in self.current_state:
                 if self.launch_queue.is_empty():
                     endturn = 'Next Phase'
                 else:
-                    endturn = 'Finish Launch'
+                    endturn = 'Finish Launching'
             else:
                 endturn = 'Next Phase'
             endturnbutton_render = self.major_font.render(endturn, True, NordColors.snow0)
@@ -702,14 +707,15 @@ class GameController:
         print(f'p1 bg queue: {p1_str}')
         print(f'p2 bg queue: {p2_str}')
 
-        if self.resolve_attacks:
-            while not self.target_queue.is_empty():
-                gun, target = self.target_queue.pop()
-                result = gun.shoot(target)
-                print(result)
-                for line in result:
-                    self.combatlog.append(line)
-            return
+        # if self.resolve_attacks:
+        #     while not self.target_queue.is_empty():
+        #         print('useless code?')
+        #         gun, target = self.target_queue.pop()
+        #         result = gun.shoot(target)
+        #         print(result)
+        #         for line in result:
+        #             self.combatlog.append(line)
+        #     return
         # if 'Cleanup' in self.current_state:
         #     print('Battlegroup activations complete, perform turn cleanup')
 
@@ -828,20 +834,25 @@ class GameController:
             print('resolve launch assets')
             self.player1.add_launch_assets()
             self.player2.add_launch_assets()
+            self.active_player = self.player_initiative
+            # if self.player_initiative is self.player1:
+            #     self.active_player = self.player1
+            #     for ship in self.player1.bomber_launch:
+            #         ship.state = ShipState.LAUNCHING
 
-            if self.player_initiative is self.player1:
-                self.active_player = self.player1
-                for ship in self.player1.bomber_launch:
-                    ship.state = ShipState.LAUNCHING
-
-            elif self.player_initiative is self.player2:
-                self.active_player = self.player2
-                for ship in self.player2.bomber_launch:
-                    ship.state = ShipState.LAUNCHING
-
+            # elif self.player_initiative is self.player2:
+            #     self.active_player = self.player2
+            #     for ship in self.player2.bomber_launch:
+            #         ship.state = ShipState.LAUNCHING
+            self.launchsel_panel.set_launch_list(self.active_player.bomber_launch)
+            self.launchsel_panel.active = True
             self.current_state = f'Turn {self.turn}: Roundup (Launch Bombers)'
         
         elif 'Launch Bombers' in self.current_state:
+            self.active_player.bomber_launch = [
+                ship for ship in self.active_player.bomber_launch 
+                if ship not in self.launchsel_panel.active_group
+                ]
             self.current_state = f'Turn {self.turn}: Roundup (Launch Fighters)'
         
         elif 'Launch Fighters' in self.current_state:
@@ -1318,6 +1329,7 @@ class LaunchQueue:
         self.font = font
         self.active = False
         self.font_height = font.size('')[1]
+        self.active_group = None
 
     def draw(self, surf):
         # self.rect.left = 350
@@ -1337,6 +1349,12 @@ class LaunchQueue:
             y = y + self.font_height
     
     def append(self, launch_asset, target):
+        if not self.target_queue:
+            self.active_group = launch_asset.ship.group
+        elif launch_asset.ship not in self.active_group:
+            print(f'ship not in current group')
+            return
+
         print(f'check if {launch_asset} already has a target')
         key_to_delete = None
         for key, row in self.target_queue.items():
@@ -1476,3 +1494,66 @@ class SquadronTargetPanel:
 
     def scroll(self, dir):
         pass
+
+class LaunchGroupSelectionPanel:
+    def __init__(self, major_font, minor_font):
+        self.active = False
+        self.groups = []
+        self.group_rects = []
+        self.active_group = None
+        
+        self.rect = pygame.Rect(0,0,0,0)
+        self.skip_rect = None
+        self.major_font = major_font
+        self.minor_font = minor_font
+    
+    def set_launch_list(self, launch):
+        self.groups = [ship.group for ship in launch]
+        self.groups = list(set(self.groups))
+        self.group_rects = [pygame.Rect(0,0,0,0) for i in self.groups]
+    
+    def on_click(self, mousepos):
+        for index, group_rect in enumerate(self.group_rects):
+            if group_rect.collidepoint(mousepos):
+                self.active = False
+                self.active_group = self.groups[index]
+                return self.active_group
+        if self.skip_rect.collidepoint(mousepos):
+            self.active = False
+        return
+    
+    def draw(self, surf):
+        if not self.active:
+            return
+        major_font_height = self.major_font.get_height()
+        minor_font_height = self.minor_font.get_height()
+        self.rect.center = surf.get_rect().center
+        self.rect.height = len(self.groups)*(major_font_height+minor_font_height)+major_font_height*2
+        self.rect.width = 350
+        pygame.draw.rect(surf, NordColors.nord0, self.rect)
+        x, y = self.rect.topleft
+        header_render = self.major_font.render('choose group to launch from', True, NordColors.snow0)
+        surf.blit(header_render, (x,y))
+        y = y + major_font_height
+        for index, group in enumerate(self.groups):
+            group_name_render = self.major_font.render(str(group), True, NordColors.snow0)
+            self.group_rects[index] = group_name_render.get_rect()
+            group_rect = self.group_rects[index]
+            group_rect.topleft = (x,y)
+            surf.blit(group_name_render, (x,y))
+            if group_rect.collidepoint(pygame.mouse.get_pos()):
+                pygame.draw.rect(surf, NordColors.frost0, group_rect, 2)
+                for ship in group:
+                    ship.hover = True
+            # else:
+            #     for ship in group:
+            #         ship.hover = False
+            y = y + major_font_height
+            group_desc_render = self.minor_font.render('group contents', True, NordColors.snow0)
+            surf.blit(group_desc_render, (x,y))
+            y = y + minor_font_height
+        skip_render = self.major_font.render('skip',True,NordColors.snow0)
+        skip_x = x + self.rect.width - skip_render.get_rect().width
+        self.skip_rect = skip_render.get_rect()
+        self.skip_rect.topleft = (skip_x,y)
+        surf.blit(skip_render, (skip_x,y))
