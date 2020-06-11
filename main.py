@@ -8,6 +8,7 @@ from ui import *
 from queue import Queue
 import random
 
+draw_fps = True
 debug = True
 if not debug:
     sys.stdout = io.StringIO()
@@ -50,6 +51,7 @@ print('initializing gamecontroller')
 gamecontroller = GameController(title_font, major_font, minor_font)
 ui.append(gamecontroller)
 launchsel_panel = gamecontroller.launchsel_panel
+launchresolve_panel = gamecontroller.launchresolve_panel
 
 print('initializing combat log')
 combatlog = CombatLog(minor_font)
@@ -127,7 +129,6 @@ show_tooltip = True
 dragging = False
 targeting_ship = None
 moving_ship = None
-draw_fps = False
 # selected_gun = None
 # firing_queue = []
 playwindow = pygame.Rect(DISPLAYSURF.get_width()*.2,0,DISPLAYSURF.get_width()*.6,DISPLAYSURF.get_height()*.7)
@@ -159,10 +160,19 @@ while True:
         elif event.type == MOUSEBUTTONDOWN:
             if event.button == 1:
                 print(f'mouse click at {event.pos}')
+                if launchresolve_panel.active and launchresolve_panel.rect.collidepoint(event.pos):
+                    print('mouse click on launch resolve selection panel')
+                    clicked_ship = launchresolve_panel.on_click(event.pos)
+                    if clicked_ship is None:
+                        continue
+                    print(f'clicked on ship {str(clicked_ship)}')
+                    gamecontroller.resolve_launch_assets(clicked_ship)
+                    continue
                 if launchsel_panel.active and launchsel_panel.rect.collidepoint(event.pos):
                     print('mouse click on launch group selection panel')
                     clicked_group = launchsel_panel.on_click(event.pos)
                     if clicked_group is None:
+                        print('no ship clicked')
                         continue
                     print(f'clicked on group {str(clicked_group)}')
                     for ship in clicked_group:
@@ -632,7 +642,6 @@ while True:
 
     # DRAW STUFF FOR ALL THE SHIPS
     for ship in player1.ships + player2.ships:
-        ship.hover = False
         if ship.state is ShipState.DESTROYED and ship in ships:
             ships.remove(ship)
             if ship in draggables:
@@ -659,7 +668,7 @@ while True:
         if ship.hover:
             pygame.draw.rect(DISPLAYSURF, NordColors.frost2, ship.rect, 1)
             if show_cohesion:
-                ship.draw_cohesion(DISPLAYSURF)        
+                ship.draw_cohesion(DISPLAYSURF)
         ship.update()
 
     # show sectors
@@ -812,6 +821,8 @@ while True:
         # if ui_el.needs_update:
         ui_el.draw(DISPLAYSURF)
             # ui_el.needs_update = False
+    for ship in player1.ships + player2.ships:
+        ship.hover = False
     if draw_fps:
         fps_font_surface = fps_font.render(f'{INTERNALCLOCK.get_fps():.1f}', 
                 True, 

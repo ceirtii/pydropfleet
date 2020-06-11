@@ -130,6 +130,7 @@ class Ship(pygame.sprite.Sprite):
         self.moving_up = False
         self.moving_down = False
         self.active_launch_assets = []
+        self.has_launched = False
         
         self.crippled = False
         # crippled effects
@@ -528,6 +529,10 @@ class Ship(pygame.sprite.Sprite):
         
         self.loc = (-1000, -1000)
         self.rect = pygame.Rect(0,0,0,0)
+        group_destroyed = True
+        for ship in self.group:
+            group_destroyed = group_destroyed and ship.state is ShipState.DESTROYED
+        self.group.destroyed = group_destroyed
         return out
 
     def draw_cohesion(self, surf):

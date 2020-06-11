@@ -210,11 +210,17 @@ class Weapon:
                 result.append(f'variable attack {self.attack}')
                 attack_cond = self.attack.strip('d')
                 dice_faces, addition = map(int,attack_cond.split('+'))
-                attack_rolls = [random.randint(1,6) for i in range(random.randint(1,dice_faces)+addition)]
+                if multiple > 1:
+                    result.append(f'pooling CAW attacks x{multiple}')
+                attacks = 0
+                for i in range(multiple):
+                    attacks = attacks + random.randint(1,dice_faces)+addition
+                attack_rolls = [random.randint(1,6) for i in range(attacks)]
             else:
                 if multiple > 1:
                     result.append(f'pooling CAW attacks x{multiple}')
-                attack_rolls = [random.randint(1,6) for i in range(int(self.attack)*self.count*multiple)]
+                attacks = int(self.attack)*self.count*multiple
+                attack_rolls = [random.randint(1,6) for i in range(attacks)]
             attack_str = ', '.join(map(str,attack_rolls))
             result.append(f'attack rolls: {attack_str}')
             # index = 0
@@ -347,6 +353,27 @@ class Squadron:
                 # print(f'ship {str(ship)} outside strike range')
                 pass
         return out
+    
+    def shoot(self, ship, multiple):
+        result = []
+        attack_rolls = [random.randint(1,6) for i in range(self.attack*multiple)]
+        attack_str = ', '.join(map(str,attack_rolls))
+        result.append(f'attack rolls: {attack_str}')
+        hits = 0
+        crits = 0
+        for val in attack_rolls:
+            if val >= self.lock + 2:
+                crits = crits + self.damage
+            elif val >= self.lock:
+                hits = hits + self.damage
+        if hits > 0 or crits > 0:
+            result.append(f'normal hits: {hits}, critical hits: {crits}')
+        else:
+            result.append(f'no hits')
+            return result
+        ship_results = ship.mitigate(hits, crits, True)
+        result = result + ship_results
+        return result
 
 if __name__ == "__main__":
     Weapon.load_gunDB()
