@@ -459,7 +459,7 @@ class Battlegroup:
         for ship in self.get_ships():
             if ship.state is not ShipState.DESTROYED:
                 ship.has_launched = False
-                ship.state = ShipState.MOVING
+                ship.set_state(ShipState.MOVING)
                 for gun in ship.guns:
                     gun.state = GunState.TARGETING
     
@@ -529,6 +529,15 @@ class ShipGroup:
             if ship.state is state:
                 out.append(ship)
         return out
+    
+    def can_launch(self, launch_type):
+        if self.destroyed:
+            return False
+        else:
+            out = False
+            for ship in self.ships:
+                out = out or ship.can_launch(launch_type)
+            return out
 
 class BattlegroupPlanner:
     def __init__(self, battlegroups, major_font, minor_font):
@@ -852,14 +861,14 @@ class GameController:
             #     self.active_player = self.player2
             #     for ship in self.player2.bomber_launch:
             #         ship.state = ShipState.LAUNCHING
-            self.launchsel_panel.set_launch_list(self.active_player.bomber_launch)
+            self.launchsel_panel.set_launch_list(self.active_player.bomber_launch, 'Bomber')
             self.launchsel_panel.active = True
             self.current_state = f'Turn {self.turn}: Roundup (Launch Bombers)'
         
         elif 'Launch Bombers' in self.current_state:
             if self.launchsel_panel.active_group:
                 for ship in self.launchsel_panel.active_group:
-                    ship.state = ShipState.LAUNCHED
+                    ship.set_state(ShipState.LAUNCHED)
                 self.active_player.bomber_launch = [
                         ship for ship in self.active_player.bomber_launch 
                         if ship not in self.launchsel_panel.active_group
@@ -875,7 +884,10 @@ class GameController:
                     self.passed_turn = True
             no_bombers = not self.player1.bomber_launch and not self.player2.bomber_launch
             if self.launch_done or no_bombers:
-                print('launch done, next phase')
+                print('bomber launch done, next phase')
+                self.active_player = self.player_initiative
+                self.launchsel_panel.set_launch_list(self.active_player.fighter_launch, 'Fighter')
+                self.launchsel_panel.active = True
                 self.current_state = f'Turn {self.turn}: Roundup (Launch Fighters)'
                 self.launch_done = False
             else:
@@ -889,11 +901,48 @@ class GameController:
                 elif self.active_player is self.player2:
                     if self.player1.bomber_launch:
                         self.active_player = self.player1
-                self.launchsel_panel.set_launch_list(self.active_player.bomber_launch)
+                self.launchsel_panel.set_launch_list(self.active_player.bomber_launch, 'Bomber')
                 self.launchsel_panel.active = True
         
         elif 'Launch Fighters' in self.current_state:
-            self.current_state = f'Turn {self.turn}: Roundup (Launch Dropships and Bulk Landers)'
+            if self.launchsel_panel.active_group:
+                for ship in self.launchsel_panel.active_group:
+                    ship.set_state(ShipState.LAUNCHED)
+                self.active_player.fighter_launch = [
+                        ship for ship in self.active_player.fighter_launch 
+                        if ship not in self.launchsel_panel.active_group
+                        ]
+                self.launchsel_panel.active_group = None
+            else:
+                print('passed turn without activating group')
+                if self.passed_turn:
+                    print('turn passed twice, moving to next phase')
+                    self.launch_done = True
+                    self.passed_turn = False
+                else:
+                    self.passed_turn = True
+            no_fighters = not self.player1.fighter_launch and not self.player2.fighter_launch
+            if self.launch_done or no_fighters:
+                print('fighter launch done, next phase')
+                self.active_player = self.player_initiative
+                drop_launch = self.active_player.dropship_launch + self.active_player.bulklander_launch
+                self.launchsel_panel.set_launch_list(drop_launch, 'Drop')
+                self.launchsel_panel.active = True
+                self.current_state = f'Turn {self.turn}: Roundup (Launch Dropships and Bulk Landers)'
+                self.launch_done = False
+            else:
+                if self.active_player is self.player1:
+                    print('player 1 finished')
+                    if self.player2.fighter_launch:
+                        print('player 2 has fighters that can launch')
+                        self.active_player = self.player2
+                    else:
+                        print('player 1 does not have fighters to launch')
+                elif self.active_player is self.player2:
+                    if self.player1.fighter_launch:
+                        self.active_player = self.player1
+                self.launchsel_panel.set_launch_list(self.active_player.fighter_launch, 'Fighter')
+                self.launchsel_panel.active = True
         
         elif 'Launch Dropships and Bulk Landers' in self.current_state:
             self.display_launching_ship = None
@@ -910,6 +959,7 @@ class GameController:
                     self.launchresolve_panel.launch_queue = self.launch_queue
                 if not self.dropships_resolved:
                     print('resolve dropships and bulk landers')
+                    self.combatlog.append('resolve dropships and bulk landers')
                     for (item, launch_assets) in self.launch_queue:
                         # print(item)
                         if isinstance(item, Sector):
@@ -1230,31 +1280,17 @@ class GameController:
             available_ships = self.launchresolve_panel.add_ships()
             if available_ships > 0:
                 break
-        friendly_fighters = []
-        enemy_fighters = []
-        enemy_bombers = []
         launch_assets = self.launch_queue.pop(ship)
+        immediate_launch_assets = []
         for strike in launch_assets:
-            if strike.launch_type == 'Fighter':
-                if strike.ship.player is ship.player:
-                    friendly_fighters.append(strike)
-                else:
-                    enemy_fighters.append(strike)
-            elif strike.launch_type == 'Bomber':
-                enemy_bombers.append(strike)
-            elif strike.launch_type == 'Torpedo':
-                print('lol')
+            dist = math.dist(strike.ship.loc, ship.loc)
+            if dist < strike.thrust:
+                print(f'launch asset {str(strike)} in 1x thrust range')
+                immediate_launch_assets.append(strike)
             else:
-                print(f'how did you get here, {str(strike)}?')
-                raise Exception
-        while friendly_fighters and enemy_fighters:
-            print('removing scrambled fighters')
-            friendly_fighters.pop()
-            enemy_fighters.pop()
-        if not enemy_bombers:
-            print('no enemy bombers')
-            return
-        result = enemy_bombers[0].shoot(ship, len(enemy_bombers))
+                print(f'launch asset {str(strike)} in 2x thrust range')
+                ship.active_launch_assets.append(strike)
+        result = ship.resolve_launch(immediate_launch_assets)
         # print(result)
         for line in result:
             self.combatlog.append(line)
@@ -1606,8 +1642,8 @@ class LaunchGroupSelectionPanel:
         self.major_font = major_font
         self.minor_font = minor_font
     
-    def set_launch_list(self, launch):
-        self.groups = [ship.group for ship in launch if not ship.group.destroyed]
+    def set_launch_list(self, launch, launch_type):
+        self.groups = [ship.group for ship in launch if ship.group.can_launch(launch_type)]
         self.groups = list(set(self.groups))
         self.group_rects = [pygame.Rect(0,0,0,0) for i in self.groups]
     

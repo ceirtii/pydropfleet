@@ -294,6 +294,17 @@ class LaunchAsset:
             faction = row['faction']
             LaunchAsset.launchDB[faction] = row['launch_assets']
         print(LaunchAsset.launchDB)
+    
+    def remove_fighters(self, bombers_launched):
+        if self.launch_type == 'Fighter':
+            for i in range(bombers_launched):
+                self.squadrons.pop()
+    
+    def restore_fighters(self):
+        if self.launch_type == 'Fighter':
+            print('restored fighters')
+            while len(self.squadrons) < self.count:
+                self.squadrons.append(Squadron(self.ship, self.faction, self.launch_type))
 
 class Squadron:
     def __init__(self, ship, faction, launch_type):

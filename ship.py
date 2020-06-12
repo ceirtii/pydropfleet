@@ -131,6 +131,7 @@ class Ship(pygame.sprite.Sprite):
         self.moving_down = False
         self.active_launch_assets = []
         self.has_launched = False
+        self.bombers_launched = 0
         
         self.crippled = False
         # crippled effects
@@ -350,7 +351,8 @@ class Ship(pygame.sprite.Sprite):
     
     def finish_activation(self):
         print('finish ship activation')
-        self.state = ShipState.ACTIVATED
+        self.set_state(ShipState.ACTIVATED)
+        self.bombers_launched = 0
         if self.order is ShipOrder.STANDARD:
             if self.active_sig > self.sig:
                 print('standard order, removing minor spike')
@@ -358,7 +360,45 @@ class Ship(pygame.sprite.Sprite):
         elif self.order is ShipOrder.WEAPONSFREE:
             print('weapons free, adding major spike')
             self.apply_spike(2)
+        if self.active_launch_assets:
+            print('resolve attached launch assets')
+            delayed_launch_results = self.resolve_launch(self.active_launch_assets)
+            for line in delayed_launch_results:
+                self.gamecontroller.combatlog.append(line)
+            self.active_launch_assets.clear()
     
+    def resolve_launch(self, launch_assets):
+        result = []
+        friendly_fighters = []
+        enemy_fighters = []
+        enemy_bombers = []
+        for strike in launch_assets:
+            strike.launching = False
+            if strike.launch_type == 'Fighter':
+                if strike.ship.player is self.player:
+                    friendly_fighters.append(strike)
+                else:
+                    enemy_fighters.append(strike)
+            elif strike.launch_type == 'Bomber':
+                enemy_bombers.append(strike)
+            elif strike.launch_type == 'Torpedo':
+                print('lol')
+            else:
+                print(f'how did you get here, {str(strike)}?')
+                raise Exception
+        while friendly_fighters and enemy_fighters:
+            print('removing scrambled fighters')
+            friendly_fighters.pop()
+            enemy_fighters.pop()
+        if not enemy_bombers:
+            print('no enemy bombers')
+            return result
+        result.append(f'{len(enemy_bombers)} bombers attacking {str(self)}')
+        shoot_result = enemy_bombers[0].shoot(self, len(enemy_bombers))
+        for line in shoot_result:
+            result.append(line)
+        return result
+
     def apply_spike(self, amount):
         for i in range(amount):
             self.active_sig = self.active_sig + 6
@@ -503,7 +543,7 @@ class Ship(pygame.sprite.Sprite):
         out = []
         out.append(f'ship destroyed!')
         self.hp = 0
-        self.state = ShipState.DESTROYED
+        self.set_state(ShipState.DESTROYED)
         self.battlegroup.update_sr()
 
         if catastrophic_damage:
@@ -748,6 +788,32 @@ class Ship(pygame.sprite.Sprite):
 
     def __eq__(self, other):
         return self is other
+    
+    def set_state(self, state):
+        if self.state is ShipState.DESTROYED:
+            return
+        if state is ShipState.LAUNCHING:
+            if self.order in [ShipOrder.SILENTRUNNING, ShipOrder.WEAPONSFREE]:
+                return
+        self.state = state
+    
+    def can_launch(self, launch_type):
+        if self.order in [ShipOrder.SILENTRUNNING, ShipOrder.WEAPONSFREE]:
+            return False
+        if launch_type == 'Fighter':
+            self.fighters.restore_fighters()
+            print(f'{self.bombers_launched} bombers launched, removing fighters')
+            self.fighters.remove_fighters(self.bombers_launched)
+            return len(self.fighters.squadrons) != 0
+        elif launch_type == 'Bomber':
+            return self.bombers is not None
+        elif launch_type == 'Drop':
+            return self.dropships is not None or self.bulk_landers is not None
+        elif launch_type == 'Torpedo':
+            return self.torpedoes is not None
+        else:
+            print(f'malformed launch_type arg {launch_type}')
+            raise Exception
 
 if __name__ == "__main__":
     Ship.load_shipDB()
