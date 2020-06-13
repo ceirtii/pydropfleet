@@ -2,26 +2,6 @@
 sam new drop-light fleet - 1245pts
 UCM - 10 launch assets
 
-SR12 Vanguard battlegroup (227pts)
-1 x Moscow - 163pts - H
-2 x Jakarta - 64pts - L
-
 SR5 Line battlegroup (132pts)
 1 x Seattle - 132pts - M
-
-SR5 Line battlegroup (132pts)
-1 x Seattle - 132pts - M
-
-SR17 Line battlegroup (338pts)
-3 x New Cairo - 264pts - M
-2 x Lima - 74pts - L
-
-SR5 Pathfinder battlegroup (178pts)
-4 x Taipei - 156pts - L
-1 x Santiago - 22pts - L
-
-SR8 Pathfinder battlegroup (238pts)
-2 x New Orleans - 64pts - L
-2 x New Orleans - 64pts - L
-2 x Vancouver - 110pts - L2
 ------------- dflist.com ------------- 

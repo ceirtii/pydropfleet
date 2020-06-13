@@ -2,29 +2,7 @@
 PHR - 1241pts
 PHR - 6 launch assets
 
-SR12 Vanguard battlegroup (284pts)
-2 x Calypso - 74pts - L
-1 x Priam - 210pts - H
-   + Director (40pts, 4AV)
-
-SR6 Line battlegroup (169pts)
-1 x Orpheus - 130pts - M
-1 x Medea - 39pts - L
-
-SR6 Line battlegroup (169pts)
-1 x Orpheus - 130pts - M
-1 x Medea - 39pts - L
-
-SR7 Line battlegroup (167pts)
-1 x Orion - 107pts - M
-2 x Echo - 60pts - L
-
-SR12 Pathfinder battlegroup (258pts)
-2 x Europa - 80pts - L
-2 x Theseus - 178pts - M
-
 SR6 Pathfinder battlegroup (154pts)
-1 x Medea - 39pts - L
 1 x Ikarus - 115pts - M
  --------------------------------------
 http://dflist.com/s/#/share/dd85518304476

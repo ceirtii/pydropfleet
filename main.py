@@ -42,6 +42,31 @@ playarea.rect = playarea.image.get_rect()
 draggables.append(playarea)
 sprites.add(playarea)
 
+print('loading clusters')
+clusters = [
+    Cluster((4, 24), [
+        SectorType.COMMERCIAL, SectorType.INDUSTRIAL, SectorType.COMMERCIAL, SectorType.MILITARY
+    ], playarea),
+    Cluster((24, 24), [
+        SectorType.MILITARY, SectorType.COMMERCIAL, SectorType.MILITARY, SectorType.INDUSTRIAL
+    ], playarea),
+    Cluster((44, 24), [
+        SectorType.MILITARY, SectorType.COMMERCIAL, SectorType.INDUSTRIAL, SectorType.COMMERCIAL
+    ], playarea),
+    Cluster((12, 30), [
+        SectorType.COMMERCIAL, SectorType.MILITARY, SectorType.INDUSTRIAL
+    ], playarea),
+    Cluster((36, 18), [
+        SectorType.MILITARY, SectorType.INDUSTRIAL, SectorType.COMMERCIAL
+    ], playarea)
+]
+for cluster in clusters:
+    draggables.append(cluster)
+    sprites.add(cluster)
+    for sector in cluster.sectors:
+        draggables.append(sector)
+        sprites.add(sector)
+
 title_font = pygame.font.Font('wscsnbd.ttf', 24)
 major_font = pygame.font.Font('wscsnbd.ttf', 18)
 minor_font = pygame.font.Font('wscsnrg.ttf', 14)

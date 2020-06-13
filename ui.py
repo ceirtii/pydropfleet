@@ -18,7 +18,9 @@ class PlayArea(pygame.sprite.Sprite):
     
     def zoom(self, zoom_increment):
         center = self.rect.center
-        self.scale = self.scale*(1+zoom_increment)
+        desired_dim = self.rect.width * (1 + zoom_increment)
+        original_dim = self.image0.get_rect().width
+        self.scale = desired_dim / original_dim
         self.image = pygame.transform.rotozoom(self.image0, 0, self.scale)
         self.rect = self.image.get_rect()
         self.rect.center = center
