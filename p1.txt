@@ -1,9 +1,19 @@
 --------------------------------------
-PHR - 1241pts
-PHR - 6 launch assets
+phr 750 starter+ - 736pts
+PHR - 4 launch assets
 
-SR6 Pathfinder battlegroup (154pts)
+SR5 Line battlegroup (130pts)
+1 x Orpheus - 130pts - M
+
+SR7 Line battlegroup (193pts)
 1 x Ikarus - 115pts - M
- --------------------------------------
-http://dflist.com/s/#/share/dd85518304476
---------------------------------------
+   + Fleet Vizier (20pts, 2AV)
+2 x Medea - 78pts - L
+
+SR7 Pathfinder battlegroup (193pts)
+2 x Medea - 78pts - L
+1 x Ikarus - 115pts - M
+
+SR4 Pathfinder battlegroup (200pts)
+4 x Pandora - 200pts - L
+------------- dflist.com ------------- 

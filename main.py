@@ -1,4 +1,8 @@
-import pygame, sys, math, io
+import pygame
+import sys
+import math
+import io
+# import os
 from pygame.locals import *
 import pygame.gfxdraw
 from ship import *
@@ -7,7 +11,9 @@ from helper import *
 from ui import *
 from queue import Queue
 import random
+from gamecontroller import *
 
+# print(os.getcwd())
 draw_fps = False
 debug = True
 if not debug:

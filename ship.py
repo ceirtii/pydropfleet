@@ -304,7 +304,7 @@ class Ship(pygame.sprite.Sprite):
                         #         gun1.active = False
                         # all_guns_inactive = False
                         # break
-                elif gun.targetable_ships is not None and gun.targetable_ships < 1:
+                elif gun.targetable_ships is not None or gun.targetable_ships < 1:
                     print('no targetable ships, disabling')
                     gun.state = GunState.INACTIVE
                     # break
@@ -400,15 +400,13 @@ class Ship(pygame.sprite.Sprite):
         return result
 
     def apply_spike(self, amount):
-        for i in range(amount):
-            self.active_sig = self.active_sig + 6
+        self.active_sig = self.active_sig + amount * 6
 
         if self.active_sig > self.sig + 12:
             self.active_sig = self.sig + 12
     
     def remove_spike(self, amount):
-        for i in range(amount):
-            self.active_sig = self.active_sig - 6
+        self.active_sig = self.active_sig - amount * 6
 
         if self.active_sig < self.sig:
             self.active_sig = self.sig
